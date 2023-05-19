@@ -1,0 +1,39 @@
+# FindMe Backend Git Ignore File
+# FindMe-Backend
+
+# For more about ignoring files:
+# See https://help.github.com/articles/ignoring-files/
+# https://www.atlassian.com/git/tutorials/saving-changes/gitignore
+
+
+# Backend Specific project files 
+zappa_settings.json
+zappa*
+
+# misc
+.DS_Store
+
+# . files
+.pem
+.log
+.vscode
+.idea
+.env
+
+# py files
+api_key.py
+env_keys.py
+bing_api_key.py
+node_modules
+yarn.lock
+env
+env_file.py
+venv
+sf_env
+sample.py
+
+# __ files
+__pycache__/
+test.py
+requirement.txt
+
