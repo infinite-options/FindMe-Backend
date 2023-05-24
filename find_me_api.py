@@ -232,6 +232,56 @@ def runSelectQuery(query, cur):
 
 
 # -- FindMe Queries start here -------------------------------------------------------------------------------
+class AddEvent(Resource):
+    def post(self):
+        print("In AddEvent")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            event = request.get_json(force=True)
+            print("**", event)
+            eventType = event["eventType"]
+            eventVisibility = event["eventVisibility"]
+            # eventPhoto = event["eventPhoto"]
+            questionList = event["preEventQuestionnaire"]
+            preEventQuestionnaire = {i: key for i, key in enumerate(questionList)}
+            print("_______ ", preEventQuestionnaire)
+
+            event_id_response = execute("CAll get_event_id;", "get", conn)
+            print("** ", event_id_response)
+            new_event_id = event_id_response["result"][0]["new_id"]
+            print("*** ", new_event_id)
+            print("**** ", eventType)
+            print("**** ", preEventQuestionnaire)
+
+            query = (
+                """INSERT INTO events
+                           SET event_uid = \'"""
+                    + new_event_id
+                    + """\',
+                                event_type = \'"""
+                    + eventType
+                    + """\',
+                               event_visibility = \'"""
+                    + eventVisibility
+                    + """\',
+                               pre_event_questionnaire  = \'""" 
+                    + json.dumps(preEventQuestionnaire)
+                    + """\';"""
+            ) 
+            print(query)
+            items = execute(query, "post", conn)
+            print(items)
+
+            response["message"] = "successful"
+            response["result"] = new_event_id
+            return response, 200
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
 
 class VerifyRegCode(Resource):
     def get(self, regCode):
@@ -265,6 +315,9 @@ class VerifyRegCode(Resource):
 # -- DEFINE APIS -------------------------------------------------------------------------------
 
 # Define API routes
+# event creation and editing endpoints
+api.add_resource(AddEvent, "/api/v2/addEvent")
+
 # event pre-registration endpoints
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
