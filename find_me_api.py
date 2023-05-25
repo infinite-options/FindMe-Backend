@@ -18,7 +18,7 @@ import boto3
 import json
 import math
 import httplib2
-
+from botocore.response import StreamingBody
 from datetime import time, date, datetime, timedelta
 import calendar
 
@@ -78,7 +78,6 @@ import pytz
 import pymysql
 import requests
 
-
 RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
 RDS_PORT = 3306
 RDS_USER = "admin"
@@ -96,6 +95,8 @@ CORS(app)
 api = Api(app)
 
 # Get RDS password from command line argument
+
+
 def RdsPw():
     if len(sys.argv) == 2:
         return str(sys.argv[1])
@@ -106,9 +107,12 @@ def RdsPw():
 # When deploying to Zappa, set RDS_PW equal to the password as a string
 # When pushing to GitHub, set RDS_PW equal to RdsPw()
 RDS_PW = "prashant"
+BUCKET_NAME = "io-find-me"
+s3 = boto3.client('s3')
 # RDS_PW = RdsPw()
 
 # Connect to MySQL database (API v2)
+app.config["DEBUG"] = True
 
 
 def connect():
@@ -161,10 +165,14 @@ def serializeResponse(response):
         raise Exception("Bad query JSON")
 
 
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
+
 # Execute an SQL command (API v2)
 # Set cmd parameter to 'get' or 'post'
 # Set conn parameter to connection object
 # OPTIONAL: Set skipSerialization to True to skip default JSON response serialization
+
+
 def execute(sql, cmd, conn, skipSerialization=False):
 
     # print("In SQL Execute Function")
@@ -224,6 +232,41 @@ def runSelectQuery(query, cur):
     except:
         raise Exception("Could not run select query and/or return data")
 
+# Function to upload image to s3
+
+
+def allowed_file(filename):
+    # print("In allowed_file: ", filename)
+    # Checks if the file is allowed to upload
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def uploadImage(file, key):
+    # print("In helper_upload_img 1: ", file)
+    bucket = 'io-find-me'
+    # creating key for image nam
+    # print("In helper_upload_img 2: ", bucket, key, file.filename)
+
+    if file and allowed_file(file.filename):
+
+        # image link
+        filename = 'https://s3-us-west-1.amazonaws.com/' \
+                   + str(bucket) + '/' + str(key)
+
+        print("Back in Helper: ", filename)
+        # uploading image to s3 bucket
+        upload_file = s3.put_object(
+            Bucket=bucket,
+            Body=file,
+            Key=key,
+            ACL='public-read',
+            ContentType='image/jpeg'
+        )
+
+        print("File upload response : ", upload_file)
+        # print("File uploaded to s3: ", filename)
+        return filename
+    return None
 
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
@@ -246,7 +289,8 @@ class AddEvent(Resource):
             eventVisibility = event["eventVisibility"]
             # eventPhoto = event["eventPhoto"]
             questionList = event["preEventQuestionnaire"]
-            preEventQuestionnaire = {i: key for i, key in enumerate(questionList)}
+            preEventQuestionnaire = {i: key for i,
+                                     key in enumerate(questionList)}
             print("_______ ", preEventQuestionnaire)
 
             event_id_response = execute("CAll get_event_id;", "get", conn)
@@ -259,18 +303,18 @@ class AddEvent(Resource):
             query = (
                 """INSERT INTO events
                            SET event_uid = \'"""
-                    + new_event_id
-                    + """\',
+                + new_event_id
+                + """\',
                                 event_type = \'"""
-                    + eventType
-                    + """\',
+                + eventType
+                + """\',
                                event_visibility = \'"""
-                    + eventVisibility
-                    + """\',
-                               pre_event_questionnaire  = \'""" 
-                    + json.dumps(preEventQuestionnaire)
-                    + """\';"""
-            ) 
+                + eventVisibility
+                + """\',
+                               pre_event_questionnaire  = \'"""
+                + json.dumps(preEventQuestionnaire)
+                + """\';"""
+            )
             print(query)
             items = execute(query, "post", conn)
             print(items)
@@ -282,6 +326,203 @@ class AddEvent(Resource):
             raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
+
+
+class EventUser(Resource):
+    def get(self):
+        print('in event user get')
+        conn = connect()
+        event = request.get_json(force=True)
+        event_user_id = event['event_user_id']
+        query = ("""SELECT * FROM event_user 
+                    WHERE
+                    event_user_uid = \'""" + event_user_id + """\';
+                    """)
+        items = execute(query, "get", conn)
+        return items
+
+    def post(self):
+        print('in event user post')
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            event = request.get_json(force=True)
+            eu_user_id = event['eu_user_id']
+            eu_event_id = event['eu_event_id']
+            eu_qas = event['eu_qas']
+
+            query1 = ["CALL find_me.get_event_user_id;"]
+            NewIDresponse = execute(query1[0], "get", conn)
+            newEventUserID = NewIDresponse["result"][0]["new_id"]
+            print('before query', newEventUserID)
+
+            query2 = ("""INSERT INTO find_me.event_user 
+                            SET
+                        event_user_uid = \'""" + newEventUserID + """\',
+                        eu_user_id = \'""" + eu_user_id + """\',
+                        eu_event_id = \'""" + eu_event_id + """\',
+                        eu_qas = \'""" + json.dumps(eu_qas) + """\';
+                        """)
+            print(query2)
+            items = execute(query2, "post", conn)
+            print(items)
+            response["message"] = "successful"
+            response["result"] = newEventUserID
+            return response
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+    def put(self):
+        print('in event user put')
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            event = request.get_json(force=True)
+            event_user_uid = event['event_user_uid']
+            eu_user_id = event['eu_user_id']
+            eu_event_id = event['eu_event_id']
+            eu_qas = event['eu_qas']
+
+            query = ("""UPDATE  event_user 
+                        SET
+                        eu_user_id = \'""" + eu_user_id + """\',
+                        eu_event_id = \'""" + eu_event_id + """\',
+                        eu_qas = \'""" + json.dumps(eu_qas) + """\'
+                        WHERE event_user_uid = \'""" + event_user_uid + """\';
+                        """)
+            items = execute(query, "post", conn)
+            return items
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class UserProfile(Resource):
+    def get(self):
+        print('in event user get')
+        conn = connect()
+        event = request.get_json(force=True)
+        profile_user_id = event['profile_user_id']
+        query = ("""SELECT * FROM profile_user 
+                    WHERE
+                    profile_user_id = \'""" + profile_user_id + """\';
+                    """)
+        items = execute(query, "get", conn)
+        return items
+
+    def post(self):
+        print('in event user post')
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            event = request.form
+            profile_user_id = event['profile_user_id']
+            title = event['title']
+            company = event['company']
+            catch_phrase = event['catch_phrase']
+            query1 = ["CALL find_me.get_profile_id;"]
+            NewIDresponse = execute(query1[0], "get", conn)
+            newProfileUserID = NewIDresponse["result"][0]["new_id"]
+            print('before query', newProfileUserID)
+            print(event)
+            images = []
+            i = -1
+            while True:
+                print('in while')
+                filename = f'img_{i}'
+                if i == -1:
+                    filename = 'img_cover'
+                file = request.files.get(filename)
+                print('in file', file)
+                if file:
+                    key = f'user/{profile_user_id}/{filename}'
+                    image = uploadImage(file, key)
+                    print('in file', image)
+                    images.append(image)
+                else:
+                    break
+                i += 1
+            print('after while', images)
+
+            query2 = ("""INSERT INTO find_me.profile_user 
+                            SET
+                        profile_uid = \'""" + newProfileUserID + """\',
+                        profile_user_id = \'""" + profile_user_id + """\',
+                        title = \'""" + title + """\',
+                        company = \'""" + company + """\',
+                        catch_phrase = \'""" + catch_phrase + """\',
+                        images = \' """ + json.dumps(images) + """ \';
+                        """)
+            print(query2)
+            items = execute(query2, "post", conn)
+            print(items)
+            response["message"] = "successful"
+            response["result"] = newProfileUserID
+            return response
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+    def put(self):
+        print('in event user put')
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            event = request.form
+            profile_uid = event['profile_uid']
+            profile_user_id = event['profile_user_id']
+            title = event['title']
+            company = event['company']
+            catch_phrase = event['catch_phrase']
+
+            print(event)
+            images = []
+            i = -1
+            while True:
+                print('in while')
+                filename = f'img_{i}'
+                if i == -1:
+                    filename = 'img_cover'
+                file = request.files.get(filename)
+                print('in file', file)
+                if file:
+                    key = f'user/{profile_user_id}/{filename}'
+                    image = uploadImage(file, key)
+                    print('in file', image)
+                    images.append(image)
+                else:
+                    break
+                i += 1
+            print('after while', images)
+
+            query2 = ("""UPDATE find_me.profile_user 
+                            SET
+                        profile_user_id = \'""" + profile_user_id + """\',
+                        title = \'""" + title + """\',
+                        company = \'""" + company + """\',
+                        catch_phrase = \'""" + catch_phrase + """\',
+                        images = \' """ + json.dumps(images) + """ \'
+                        WHERE profile_uid = \'""" + profile_uid + """\';
+                        """)
+            print(query2)
+            items = execute(query2, "post", conn)
+            print(items)
+            response["message"] = "successful"
+            response["result"] = profile_uid
+            return response
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
 
 class VerifyRegCode(Resource):
     def get(self, regCode):
@@ -314,12 +555,20 @@ class VerifyRegCode(Resource):
 
 # -- DEFINE APIS -------------------------------------------------------------------------------
 
+
 # Define API routes
 # event creation and editing endpoints
-api.add_resource(AddEvent, "/api/v2/addEvent")
+api.add_resource(AddEvent, "/api/v2/AddEvent")
 
 # event pre-registration endpoints
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
+
+# add event and user relationship + questions
+
+api.add_resource(EventUser, "/api/v2/EventUser")
+
+# add user profile
+api.add_resource(UserProfile, "/api/v2/UserProfile")
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
