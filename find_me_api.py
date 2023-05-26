@@ -321,34 +321,59 @@ class AddEvent(Resource):
             print("**", event)
             eventType = event["eventType"]
             eventVisibility = event["eventVisibility"]
+            eventTitle = event["eventTitle"]
+            eventDescription = event["eventDescription"]
+            eventCapacity = event["eventCapacity"]
+            eventStartTime = event["eventStartTime"]
+            eventEndTime = event["eventEndTime"]
             # eventPhoto = event["eventPhoto"]
             questionList = event["preEventQuestionnaire"]
-            preEventQuestionnaire = {i: key for i,
-                                     key in enumerate(questionList)}
-            print("_______ ", preEventQuestionnaire)
+
+            preEventQuestionnaire = {i: key for i, key in enumerate(questionList)}
+
 
             event_id_response = execute("CAll get_event_id;", "get", conn)
-            print("** ", event_id_response)
             new_event_id = event_id_response["result"][0]["new_id"]
-            print("*** ", new_event_id)
             print("**** ", eventType)
             print("**** ", preEventQuestionnaire)
 
             query = (
                 """INSERT INTO events
                            SET event_uid = \'"""
-                + new_event_id
-                + """\',
+                    + new_event_id
+                    + """\',
+                                event_title = \'"""
+                    + eventTitle
+                    + """\',
+                                event_description = \'"""
+                    + eventDescription
+                    + """\',
                                 event_type = \'"""
-                + eventType
-                + """\',
-                               event_visibility = \'"""
-                + eventVisibility
-                + """\',
-                               pre_event_questionnaire  = \'"""
-                + json.dumps(preEventQuestionnaire)
-                + """\';"""
-            )
+                    + eventType
+                    + """\',
+                                event_start_date = \'"""
+                    + eventStartDate
+                    + """\',
+                                event_end_date = \'"""
+                    + eventEndDate
+                    + """\',
+                               event_start_time = \'"""
+                    + eventStartTime
+                    + """\',
+                                event_end_time = \'"""
+                    + eventEndTime
+                    + """\',
+                                event_visibility = \'"""
+                    + eventVisibility
+                    + """\',
+                                event_capacity = \'"""
+                    + eventCapacity
+                    + """\',
+                               pre_event_questionnaire  = \'""" 
+                    + json.dumps(preEventQuestionnaire)
+                    + """\';"""
+            ) 
+
             print(query)
             items = execute(query, "post", conn)
             print(items)
