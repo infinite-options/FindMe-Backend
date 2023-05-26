@@ -326,11 +326,13 @@ class AddEvent(Resource):
             eventCapacity = event["eventCapacity"]
             eventStartTime = event["eventStartTime"]
             eventEndTime = event["eventEndTime"]
+            eventStartDate = event["eventStartDate"]
+            eventEndDate = event["eventEndDate"]
             # eventPhoto = event["eventPhoto"]
             questionList = event["preEventQuestionnaire"]
 
-            preEventQuestionnaire = {i: key for i, key in enumerate(questionList)}
-
+            preEventQuestionnaire = {i: key for i,
+                                     key in enumerate(questionList)}
 
             event_id_response = execute("CAll get_event_id;", "get", conn)
             new_event_id = event_id_response["result"][0]["new_id"]
@@ -340,39 +342,39 @@ class AddEvent(Resource):
             query = (
                 """INSERT INTO events
                            SET event_uid = \'"""
-                    + new_event_id
-                    + """\',
+                + new_event_id
+                + """\',
                                 event_title = \'"""
-                    + eventTitle
-                    + """\',
+                + eventTitle
+                + """\',
                                 event_description = \'"""
-                    + eventDescription
-                    + """\',
+                + eventDescription
+                + """\',
                                 event_type = \'"""
-                    + eventType
-                    + """\',
+                + eventType
+                + """\',
                                 event_start_date = \'"""
-                    + eventStartDate
-                    + """\',
+                + eventStartDate
+                + """\',
                                 event_end_date = \'"""
-                    + eventEndDate
-                    + """\',
+                + eventEndDate
+                + """\',
                                event_start_time = \'"""
-                    + eventStartTime
-                    + """\',
+                + eventStartTime
+                + """\',
                                 event_end_time = \'"""
-                    + eventEndTime
-                    + """\',
+                + eventEndTime
+                + """\',
                                 event_visibility = \'"""
-                    + eventVisibility
-                    + """\',
+                + eventVisibility
+                + """\',
                                 event_capacity = \'"""
-                    + eventCapacity
-                    + """\',
-                               pre_event_questionnaire  = \'""" 
-                    + json.dumps(preEventQuestionnaire)
-                    + """\';"""
-            ) 
+                + eventCapacity
+                + """\',
+                               pre_event_questionnaire  = \'"""
+                + json.dumps(preEventQuestionnaire)
+                + """\';"""
+            )
 
             print(query)
             items = execute(query, "post", conn)
@@ -734,7 +736,8 @@ class NetworkingGraph(Resource):
         finally:
             disconnect(conn)
         return response, 200
-    
+
+
 class EventAttendees(Resource):
     def get(self):
         response = {}
@@ -753,7 +756,7 @@ class EventAttendees(Resource):
             )
             conn = connect()
             attendees = execute(query, "get", conn)["result"]
-            
+
             response["message"] = "successful"
             response["attendees"] = attendees
         except Exception as e:
@@ -761,6 +764,7 @@ class EventAttendees(Resource):
         finally:
             disconnect(conn)
         return response, 200
+
 
 class GetEvents(Resource):
     def get(self):
