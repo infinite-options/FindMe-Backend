@@ -21,7 +21,7 @@ import httplib2
 from botocore.response import StreamingBody
 from datetime import time, date, datetime, timedelta
 import calendar
-
+import collections
 from pytz import timezone
 import random
 import string
@@ -664,6 +664,46 @@ class GetEvents(Resource):
         return items
 
 
+class GetOrganizers(Resource):
+
+    def get(self):
+        conn = connect()
+        response = {}
+        response["message"] = "Successfully executed SQL query."
+        response["code"]: 280
+        response['result'] = []
+
+        query = ("""SELECT u.* 
+                    FROM events e 
+                    LEFT JOIN users u 
+                    ON u.user_uid = e.event_organizer_uid;
+                    """)
+        items = execute(query, "get", conn)
+        # print(items)
+        seen = collections.OrderedDict()
+        users = items['result']
+        for obj in users:
+            print(obj)
+            print(seen)
+            # eliminate this check if you want the last item
+            if obj['user_uid'] not in seen:
+                seen[obj['user_uid']] = obj
+
+        response['result'] = list(seen.values())
+
+        print(list(seen.values()))
+        # for user in items['result']:
+        #     print(user)
+        #     quer_events = ("""SELECT *
+        #             FROM events e WHERE event_organizer_uid = \'""" + user['user_uid'] + """\' ;
+        #             """)
+        #     items_events = execute(quer_events, 'get', conn)
+        #     if len(items_events['result']) > 0:
+        #         response['result'] = response['result'].append(user)
+
+        return response
+
+
 # -- DEFINE APIS -------------------------------------------------------------------------------
 # Define API routes
 # event creation and editing endpoints
@@ -677,6 +717,7 @@ api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
 api.add_resource(EventUser, "/api/v2/EventUser")
 api.add_resource(GetEventUser, "/api/v2/GetEventUser/<string:eu_user_id>")
+api.add_resource(GetOrganizers, "/api/v2/GetOrganizers")
 
 # add user profile
 api.add_resource(UserProfile, "/api/v2/UserProfile")
