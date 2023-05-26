@@ -242,10 +242,7 @@ def allowed_file(filename):
 
 
 def uploadImage(file, key):
-    # print("In helper_upload_img 1: ", file)
     bucket = 'io-find-me'
-    # creating key for image nam
-    # print("In helper_upload_img 2: ", bucket, key, file.filename)
 
     if file and allowed_file(file.filename):
 
@@ -267,6 +264,43 @@ def uploadImage(file, key):
         # print("File uploaded to s3: ", filename)
         return filename
     return None
+
+
+def updateImages(imageFiles, id):
+    content = []
+
+    for filename in imageFiles:
+
+        if type(imageFiles[filename]) == str:
+
+            bucket = 'io-find-me'
+            key = imageFiles[filename].split('/io-find-me/')[1]
+            data = s3.get_object(
+                Bucket=bucket,
+                Key=key
+            )
+            imageFiles[filename] = data['Body']
+            content.append(data['ContentType'])
+        else:
+            content.append('')
+
+    s3Resource = boto3.resource('s3')
+    bucket = s3Resource.Bucket('io-find-me')
+    bucket.objects.filter(
+        Prefix=f'user/{id}/').delete()
+    images = []
+    for i in range(len(imageFiles.keys())):
+
+        filename = f'img_{i-1}'
+        if i == 0:
+            filename = 'img_cover'
+        key = f'user/{id}/{filename}'
+        image = uploadImage(
+            imageFiles[filename], key)
+
+        images.append(image)
+    return images
+
 
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
@@ -402,18 +436,41 @@ class EventUser(Resource):
             disconnect(conn)
 
 
+class GetEventUser(Resource):
+    def get(self, eu_user_id):
+        print('in event user get')
+        conn = connect()
+        query = ("""SELECT * FROM event_user eu
+                    LEFT JOIN events e
+                    ON e.event_uid = eu.eu_event_id
+                    WHERE eu.eu_user_id = \'""" + eu_user_id + """\';
+                    """)
+        items = execute(query, "get", conn)
+        return items
+
+
 class UserProfile(Resource):
     def get(self):
+        response = {}
         print('in event user get')
         conn = connect()
         event = request.get_json(force=True)
         profile_user_id = event['profile_user_id']
-        query = ("""SELECT * FROM profile_user 
+        query = ("""SELECT * FROM profile_user pu
+                    LEFT JOIN users u
+                    ON u.user_uid = pu.profile_user_id
                     WHERE
-                    profile_user_id = \'""" + profile_user_id + """\';
+                    pu.profile_user_id = \'""" + profile_user_id + """\';
                     """)
         items = execute(query, "get", conn)
-        return items
+        print(items['result'])
+        if len(items['result']) == 0:
+            response['message'] = 'User Profile Doest Not Exist'
+            response['result'] = items['result']
+        else:
+            response['message'] = 'User Profile Exists'
+            response['result'] = items['result']
+        return response
 
     def post(self):
         print('in event user post')
@@ -486,21 +543,23 @@ class UserProfile(Resource):
             print(event)
             images = []
             i = -1
+            imageFiles = {}
+
             while True:
-                print('in while')
+                # print('if true')
                 filename = f'img_{i}'
                 if i == -1:
                     filename = 'img_cover'
                 file = request.files.get(filename)
-                print('in file', file)
+                s3Link = event.get(filename)
                 if file:
-                    key = f'user/{profile_user_id}/{filename}'
-                    image = uploadImage(file, key)
-                    print('in file', image)
-                    images.append(image)
+                    imageFiles[filename] = file
+                elif s3Link:
+                    imageFiles[filename] = s3Link
                 else:
                     break
                 i += 1
+            images = updateImages(imageFiles, profile_user_id)
             print('after while', images)
 
             query2 = ("""UPDATE find_me.profile_user 
@@ -512,9 +571,9 @@ class UserProfile(Resource):
                         images = \' """ + json.dumps(images) + """ \'
                         WHERE profile_uid = \'""" + profile_uid + """\';
                         """)
-            print(query2)
+
             items = execute(query2, "post", conn)
-            print(items)
+
             response["message"] = "successful"
             response["result"] = profile_uid
             return response
@@ -522,6 +581,29 @@ class UserProfile(Resource):
             raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
+
+
+class CheckUserProfile(Resource):
+    def get(self, user_id):
+        response = {}
+        print('in event user get')
+        conn = connect()
+        query = ("""SELECT * 
+                    FROM users u
+                    LEFT JOIN  profile_user pu
+                    ON u.user_uid = pu.profile_user_id
+                    WHERE
+                    u.user_uid = \'""" + user_id + """\';
+                    """)
+        items = execute(query, "get", conn)
+        print(items['result'])
+        if (items['result'][0]['profile_uid']) == None:
+            response['message'] = 'User Profile Doest Not Exist'
+            response['result'] = items['result']
+        else:
+            response['message'] = 'User Profile Exists'
+            response['result'] = items['result']
+        return response
 
 
 class VerifyRegCode(Resource):
@@ -553,12 +635,40 @@ class VerifyRegCode(Resource):
         finally:
             disconnect(conn)
 
+
+class GetEvents(Resource):
+    def get(self):
+        conn = connect()
+        filters = ['event_start_date', 'event_organizer_uid',
+                   'event_location', 'event_zip', 'event_type']
+        where = {}
+        for filter in filters:
+            filterValue = request.args.get(filter)
+
+            if filterValue is not None:
+                where[filter] = filterValue
+
+        if where == {}:
+            query = ("""SELECT * FROM events;
+                        """)
+            items = execute(query, "get", conn)
+
+        else:
+
+            query = ("""SELECT * 
+                        FROM events 
+                        WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\';
+                        """)
+            items = execute(query, "get", conn)
+
+        return items
+
+
 # -- DEFINE APIS -------------------------------------------------------------------------------
-
-
 # Define API routes
 # event creation and editing endpoints
 api.add_resource(AddEvent, "/api/v2/AddEvent")
+api.add_resource(GetEvents, "/api/v2/GetEvents")
 
 # event pre-registration endpoints
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
@@ -566,9 +676,11 @@ api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 # add event and user relationship + questions
 
 api.add_resource(EventUser, "/api/v2/EventUser")
+api.add_resource(GetEventUser, "/api/v2/GetEventUser/<string:eu_user_id>")
 
 # add user profile
 api.add_resource(UserProfile, "/api/v2/UserProfile")
+api.add_resource(CheckUserProfile, "/api/v2/CheckUserProfile/<string:user_id>")
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
