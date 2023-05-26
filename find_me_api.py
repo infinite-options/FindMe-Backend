@@ -39,7 +39,7 @@ from collections import OrderedDict, Counter
 # from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 # from flask_cors import CORS
 
-from werkzeug.exceptions import BadRequest, NotFound
+from werkzeug.exceptions import BadRequest, NotFound, InternalServerError
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import googleapiclient.discovery as discovery
@@ -661,6 +661,107 @@ class VerifyRegCode(Resource):
             disconnect(conn)
 
 
+class NetworkingGraph(Resource):
+    def get(self):
+        response = {}
+        helper_map = {
+            "Founder": ["Founder", "Looking for a new challenge"],
+            "VC": ["VC"],
+            "Looking for a new challenge": ["Looking for a new challenge"],
+        }
+        needer_map = {
+            "Founder": ["VC"],
+            "VC": ["Founder"],
+            "Looking for a new challenge": ["Founder", "VC"],
+        }
+        try:
+            args = request.args
+            event_id = args["eventId"]
+            user_id = args["userId"]
+            query = (
+                """
+                SELECT user_uid, first_name, last_name, role
+                FROM find_me.users u INNER JOIN find_me.event_user eu 
+                    ON u.user_uid = eu.eu_user_id
+                WHERE eu.eu_event_id = \'"""
+                + event_id
+                + """\';
+                """
+            )
+            conn = connect()
+            query_result = execute(query, "get", conn)["result"]
+            user_group = []
+            # Finding current user data
+            user = {}
+            for idx, value in enumerate(query_result):
+                if user_id == value["user_uid"]:
+                    user = query_result.pop(idx)
+                    user["graph_code"] = 1
+                    user_group.append(user)
+            # Finding who the current user can help
+            needer_roles = set()
+            for role in user["role"].split(", "):
+                needer_roles.update(needer_map[role])
+            needers = []
+            for idx, needer_user in enumerate(query_result):
+                if any(role in needer_roles for role in needer_user["role"].split(", ")) and len(needers) < 3:
+                    needer_user = query_result.pop(idx)
+                    needer_user["graph_code"] = 5
+                    user_group.append(needer_user)
+                    needers.append({
+                        "from": user["user_uid"],
+                        "to": needer_user["user_uid"],
+                    })
+            # Finding who can help the current user
+            helper_roles = set()
+            for role in user["role"].split(", "):
+                helper_roles.update(helper_map[role])
+            helpers = []
+            for idx, helper_user in enumerate(query_result):
+                if any(role in helper_roles for role in helper_user["role"].split(", ")) and len(helpers) < 3:
+                    helper_user = query_result.pop(idx)
+                    helper_user["graph_code"] = 15
+                    user_group.append(helper_user)
+                    helpers.append({
+                        "from": helper_user["user_uid"],
+                        "to": user["user_uid"],
+                    })
+            response["message"] = "successful"
+            response["users"] = user_group
+            response["links"] = helpers + needers
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+    
+class EventAttendees(Resource):
+    def get(self):
+        response = {}
+        try:
+            args = request.args
+            event_id = args["eventId"]
+            query = (
+                """
+                SELECT user_uid, first_name, last_name, role
+                FROM find_me.users u INNER JOIN find_me.event_user eu 
+                    ON u.user_uid = eu.eu_user_id
+                WHERE eu.eu_event_id = \'"""
+                + event_id
+                + """\';
+                """
+            )
+            conn = connect()
+            attendees = execute(query, "get", conn)["result"]
+            
+            response["message"] = "successful"
+            response["attendees"] = attendees
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+
 class GetEvents(Resource):
     def get(self):
         conn = connect()
@@ -738,6 +839,11 @@ api.add_resource(GetEvents, "/api/v2/GetEvents")
 # event pre-registration endpoints
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
+
+# networking endpoints
+api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
+api.add_resource(EventAttendees, "/api/v2/eventAttendees")
+
 # add event and user relationship + questions
 
 api.add_resource(EventUser, "/api/v2/EventUser")
@@ -747,6 +853,7 @@ api.add_resource(GetOrganizers, "/api/v2/GetOrganizers")
 # add user profile
 api.add_resource(UserProfile, "/api/v2/UserProfile")
 api.add_resource(CheckUserProfile, "/api/v2/CheckUserProfile/<string:user_id>")
+
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
