@@ -764,7 +764,71 @@ class EventAttendees(Resource):
         finally:
             disconnect(conn)
         return response, 200
+    
+class IsOrganizer(Resource):
+    def get(self):
+        response = {}
+        try:
+            args = request.args
+            user_id = args["userId"]
+            query = (
+                """
+                SELECT 1 FROM find_me.events
+                WHERE event_organizer_uid = \'"""
+                + user_id
+                + """\';
+                """
+            )
+            conn = connect()
+            query_result = execute(query, "get", conn)["result"]
+            is_organizer = False
+            if len(query_result)>0:
+                is_organizer = True
+            response["message"] = "successful"
+            response["isOrganizer"] = is_organizer
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
 
+class EventByRegCode(Resource):
+    def get(self):
+        response = {}
+        try:
+            args = request.args
+            user_id = args["userId"]
+            reg_Code = args["regCode"]
+            query = (
+                """
+                SELECT *
+                FROM find_me.events e
+                WHERE e.event_registration_code = \'"""
+                + reg_Code
+                + """\'
+                    AND EXISTS(
+                        SELECT *
+                        FROM find_me.event_user eu
+                        WHERE eu.eu_user_id = \'"""
+                + user_id
+                + """\'
+                        AND eu.eu_event_id = e.event_uid
+                    );
+                """
+            )
+            conn = connect()
+            event = execute(query, "get", conn)["result"]
+            if not event:
+                raise BadRequest
+            response["message"] = "successful"
+            response["event"] = event
+        except BadRequest as e:
+            raise BadRequest("Please enter a valid code.") from e
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
 
 class GetEvents(Resource):
     def get(self):
@@ -847,6 +911,8 @@ api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 # networking endpoints
 api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
+api.add_resource(IsOrganizer, "/api/v2/isOrganizer")
+api.add_resource(EventByRegCode, "/api/v2/eventByRegCode")
 
 # add event and user relationship + questions
 
