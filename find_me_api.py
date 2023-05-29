@@ -444,19 +444,25 @@ class EventUser(Resource):
             conn = connect()
             event = request.get_json(force=True)
             event_user_uid = event['event_user_uid']
-            eu_user_id = event['eu_user_id']
-            eu_event_id = event['eu_event_id']
             eu_qas = event['eu_qas']
 
             query = ("""UPDATE  event_user 
                         SET
-                        eu_user_id = \'""" + eu_user_id + """\',
-                        eu_event_id = \'""" + eu_event_id + """\',
                         eu_qas = \'""" + json.dumps(eu_qas) + """\'
                         WHERE event_user_uid = \'""" + event_user_uid + """\';
                         """)
+            print(query)
             items = execute(query, "post", conn)
-            return items
+            print(items)
+            query2 = ("""SELECT * FROM event_user eu
+                    LEFT JOIN events e
+                    ON e.event_uid = eu.eu_event_id
+                    WHERE event_user_uid = \'""" + event_user_uid + """\';
+                        """)
+            items2 = execute(query2, "get", conn)
+            response["message"] = "Updated Successfully"
+            response["result"] = items2['result']
+            return response
         except:
             raise BadRequest("Request failed, please try again later.")
         finally:
@@ -474,6 +480,30 @@ class GetEventUser(Resource):
                     """)
         items = execute(query, "get", conn)
         return items
+
+
+class CheckAlreadyRegistered(Resource):
+    def get(self, event_id, user_id):
+        response = {}
+        print('in event user get')
+        conn = connect()
+        query = ("""SELECT * 
+                    FROM event_user eu
+                    LEFT JOIN events e
+                    ON e.event_uid = eu.eu_event_id
+                    WHERE
+                    eu.eu_event_id = \'""" + event_id + """\' AND 
+                    eu.eu_user_id = \'""" + user_id + """\';
+                    """)
+        items = execute(query, "get", conn)
+        print(items['result'])
+        if len(items['result']) == 0:
+            response['message'] = 'Not Registered'
+            response['result'] = items['result']
+        else:
+            response['message'] = 'Already Registered'
+            response['result'] = items['result']
+        return response
 
 
 class UserProfile(Resource):
@@ -852,6 +882,8 @@ api.add_resource(EventAttendees, "/api/v2/eventAttendees")
 
 api.add_resource(EventUser, "/api/v2/EventUser")
 api.add_resource(GetEventUser, "/api/v2/GetEventUser/<string:eu_user_id>")
+api.add_resource(CheckAlreadyRegistered,
+                 "/api/v2/CheckAlreadyRegistered/<string:event_id>,<string:user_id>")
 api.add_resource(GetOrganizers, "/api/v2/GetOrganizers")
 
 # add user profile
