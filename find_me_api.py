@@ -328,6 +328,7 @@ class AddEvent(Resource):
             conn = connect()
             event = request.get_json(force=True)
             print("**", event)
+            event_organizer_uid = event["event_organizer_uid"]
             eventType = event["eventType"]
             eventVisibility = event["eventVisibility"]
             eventTitle = event["eventTitle"]
@@ -358,6 +359,9 @@ class AddEvent(Resource):
                 + """\',
                                 event_description = \'"""
                 + eventDescription
+                + """\',
+                                event_organizer_uid = \'"""
+                + event_organizer_uid
                 + """\',
                                 event_type = \'"""
                 + eventType
