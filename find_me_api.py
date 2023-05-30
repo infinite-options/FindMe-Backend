@@ -796,21 +796,23 @@ class IsOrganizer(Resource):
             disconnect(conn)
         return response, 200
 
-class EventByRegCode(Resource):
-    def get(self):
+class VerifyCheckinCode(Resource):
+    def post(self):
         response = {}
         try:
-            args = request.args
-            user_id = args["userId"]
-            reg_Code = args["regCode"]
+            payload = request.get_json()
+            user_id = payload["userId"]
+            event_uid = payload["eventId"]
+            reg_Code = payload["regCode"]
             query = (
                 """
-                SELECT *
+                SELECT 1
                 FROM find_me.events e
                 WHERE e.event_registration_code = \'"""
                 + reg_Code
-                + """\'
-                    AND EXISTS(
+                + """\' WHERE e.event_uid = \'"""
+                + event_uid
+                + """\' AND EXISTS(
                         SELECT *
                         FROM find_me.event_user eu
                         WHERE eu.eu_user_id = \'"""
@@ -821,11 +823,10 @@ class EventByRegCode(Resource):
                 """
             )
             conn = connect()
-            event = execute(query, "get", conn)["result"]
-            if not event:
+            query_result = execute(query, "get", conn)["result"]
+            if len(query_result)<1:
                 raise BadRequest
             response["message"] = "successful"
-            response["event"] = event
         except BadRequest as e:
             raise BadRequest("Please enter a valid code.") from e
         except Exception as e:
@@ -994,7 +995,7 @@ api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
 api.add_resource(IsOrganizer, "/api/v2/isOrganizer")
-api.add_resource(EventByRegCode, "/api/v2/eventByRegCode")
+api.add_resource(VerifyCheckinCode, "/api/v2/verifyCheckinCode")
 api.add_resource(CurrentEvents, "/api/v2/currentEvents")
 api.add_resource(EventStatus, "/api/v2/eventStatus")
 
