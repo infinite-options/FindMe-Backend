@@ -833,6 +833,153 @@ class GetOrganizers(Resource):
 
         return response
 
+class IsOrganizer(Resource):
+    def get(self):
+        response = {}
+        try:
+            args = request.args
+            user_uid = args["userId"]
+            event_uid = args["eventId"]
+            query = (
+                """
+                SELECT 1 FROM find_me.events
+                WHERE event_organizer_uid = \'"""
+                + user_uid
+                + """\'
+                    AND event_uid = \'"""
+                + event_uid
+                + """\';
+                """
+            )
+            conn = connect()
+            query_result = execute(query, "get", conn)["result"]
+            is_organizer = False
+            if len(query_result)>0:
+                is_organizer = True
+            response["message"] = "successful"
+            response["isOrganizer"] = is_organizer
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+
+class VerifyCheckinCode(Resource):
+    def post(self):
+        response = {}
+        try:
+            payload = request.get_json()
+            user_id = payload["userId"]
+            event_uid = payload["eventId"]
+            reg_Code = payload["regCode"]
+            query = (
+                """
+                SELECT 1
+                FROM find_me.events e
+                WHERE e.event_registration_code = \'"""
+                + reg_Code
+                + """\' WHERE e.event_uid = \'"""
+                + event_uid
+                + """\' AND EXISTS(
+                        SELECT *
+                        FROM find_me.event_user eu
+                        WHERE eu.eu_user_id = \'"""
+                + user_id
+                + """\'
+                        AND eu.eu_event_id = e.event_uid
+                    );
+                """
+            )
+            conn = connect()
+            query_result = execute(query, "get", conn)["result"]
+            if len(query_result)<1:
+                raise BadRequest
+            response["message"] = "successful"
+        except BadRequest as e:
+            raise BadRequest("Please enter a valid code.") from e
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+
+class CurrentEvents(Resource):
+    def get(self):
+        response = {}
+        try:
+            query = (
+                """
+                WITH event_start AS (
+                    SELECT event_uid,
+                        STR_TO_DATE(
+                            concat(event_start_date, ' ', event_start_time),
+                            '%m/%d/%Y %H:%i:%s'
+                        ) AS start_datetime
+                    FROM find_me.events e
+                )
+                SELECT e.*
+                FROM find_me.events e
+                    INNER JOIN event_start es ON e.event_uid = es.event_uid
+                WHERE start_datetime >= (
+                        STR_TO_DATE(\'"""
+                + datetime.now().strftime('%m/%d/%Y %H:%M:%S')
+                + """\', '%m/%d/%Y %H:%i:%s') - INTERVAL 1 HOUR
+                    )
+                ORDER BY start_datetime;
+                """
+            )
+            conn = connect()
+            events = execute(query, "get", conn)["result"]
+            response["message"] = "successful"
+            response["events"] = events
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+
+class EventStatus(Resource):
+    def get(self):
+        response = {}
+        try:
+            args = request.args
+            event_uid = args["eventId"]
+            query = (
+                """
+                WITH event_start AS (
+                    SELECT STR_TO_DATE(
+                            concat(event_start_date, ' ', event_start_time),
+                            '%m/%d/%Y %H:%i:%s'
+                        ) AS start_datetime
+                    FROM find_me.events e
+                    WHERE e.event_uid = \'"""
+                + event_uid
+                + """\'
+                )
+                SELECT IF(
+                        start_datetime BETWEEN (
+                            STR_TO_DATE(\'"""
+                + datetime.now().strftime('%m/%d/%Y %H:%M:%S')
+                + """\', '%m/%d/%Y %H:%i:%s') - INTERVAL 1 HOUR
+                        )
+                        AND STR_TO_DATE(\'"""
+                + datetime.now().strftime('%m/%d/%Y %H:%M:%S')
+                + """\', '%m/%d/%Y %H:%i:%s'),
+                        TRUE,
+                        FALSE
+                    ) AS event_status
+                FROM event_start;
+                """
+            )
+            conn = connect()
+            event_status = execute(query, "get", conn)["result"]
+            response["message"] = "successful"
+            response["eventStatus"] = event_status
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
 
 # -- DEFINE APIS -------------------------------------------------------------------------------
 # Define API routes
@@ -844,9 +991,13 @@ api.add_resource(GetEvents, "/api/v2/GetEvents")
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
 
-# networking endpoints
+# arrive at event endpoints
 api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
+api.add_resource(IsOrganizer, "/api/v2/isOrganizer")
+api.add_resource(VerifyCheckinCode, "/api/v2/verifyCheckinCode")
+api.add_resource(CurrentEvents, "/api/v2/currentEvents")
+api.add_resource(EventStatus, "/api/v2/eventStatus")
 
 # add event and user relationship + questions
 
