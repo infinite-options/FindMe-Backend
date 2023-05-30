@@ -241,10 +241,16 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def uploadImage(file, key):
+def uploadImage(file, key, content):
     bucket = 'io-find-me'
+    contentType = 'image/jpeg'
+    if type(file) == StreamingBody:
+        print('if streaming body')
+        contentType = content
+        return
 
     if file and allowed_file(file.filename):
+        print('if file')
 
         # image link
         filename = 'https://s3-us-west-1.amazonaws.com/' \
@@ -257,7 +263,7 @@ def uploadImage(file, key):
             Body=file,
             Key=key,
             ACL='public-read',
-            ContentType='image/jpeg'
+            ContentType=contentType
         )
 
         print("File upload response : ", upload_file)
@@ -268,26 +274,28 @@ def uploadImage(file, key):
 
 def updateImages(imageFiles, id):
     content = []
-
+    print('in updateImages')
     for filename in imageFiles:
 
         if type(imageFiles[filename]) == str:
-
+            print('in str')
             bucket = 'io-find-me'
             key = imageFiles[filename].split('/io-find-me/')[1]
+            print(bucket, key)
             data = s3.get_object(
                 Bucket=bucket,
                 Key=key
             )
             imageFiles[filename] = data['Body']
             content.append(data['ContentType'])
+            print(content)
         else:
             content.append('')
 
     s3Resource = boto3.resource('s3')
     bucket = s3Resource.Bucket('io-find-me')
-    bucket.objects.filter(
-        Prefix=f'user/{id}/').delete()
+    # bucket.objects.filter(
+    #     Prefix=f'user/{id}/').delete()
     images = []
     for i in range(len(imageFiles.keys())):
 
@@ -295,8 +303,9 @@ def updateImages(imageFiles, id):
         if i == 0:
             filename = 'img_cover'
         key = f'user/{id}/{filename}'
+        print(content[i])
         image = uploadImage(
-            imageFiles[filename], key)
+            imageFiles[filename], key, content[i])
 
         images.append(image)
     return images
@@ -540,6 +549,10 @@ class UserProfile(Resource):
             title = event['title']
             company = event['company']
             catch_phrase = event['catch_phrase']
+            role = event['role']
+            firstName = event['first_name']
+            lastName = event['last_name']
+            phoneNumber = event['phone_number']
             query1 = ["CALL find_me.get_profile_id;"]
             NewIDresponse = execute(query1[0], "get", conn)
             newProfileUserID = NewIDresponse["result"][0]["new_id"]
@@ -556,7 +569,7 @@ class UserProfile(Resource):
                 print('in file', file)
                 if file:
                     key = f'user/{profile_user_id}/{filename}'
-                    image = uploadImage(file, key)
+                    image = uploadImage(file, key, '')
                     print('in file', image)
                     images.append(image)
                 else:
@@ -576,6 +589,16 @@ class UserProfile(Resource):
             print(query2)
             items = execute(query2, "post", conn)
             print(items)
+            query3 = ("""UPDATE find_me.users
+                        SET  
+                        first_name = \'""" + firstName + """\',
+                        last_name = \'""" + lastName + """\',
+                        phone_number = \'""" + phoneNumber + """\',
+                        role = \'""" + role + """\'
+                        WHERE user_uid = \'""" + profile_user_id + """\'
+                        """)
+            items2 = execute(query3, "post", conn)
+            print(items2)
             response["message"] = "successful"
             response["result"] = newProfileUserID
             return response
@@ -596,26 +619,30 @@ class UserProfile(Resource):
             title = event['title']
             company = event['company']
             catch_phrase = event['catch_phrase']
+            role = event['role']
+            firstName = event['first_name']
+            lastName = event['last_name']
+            phoneNumber = event['phone_number']
 
-            print(event)
             images = []
             i = -1
             imageFiles = {}
 
-            while True:
-                # print('if true')
-                filename = f'img_{i}'
-                if i == -1:
-                    filename = 'img_cover'
-                file = request.files.get(filename)
-                s3Link = event.get(filename)
-                if file:
-                    imageFiles[filename] = file
-                elif s3Link:
-                    imageFiles[filename] = s3Link
-                else:
-                    break
-                i += 1
+            # print('if true')
+            filename = f'img_{i}'
+            if i == -1:
+                filename = 'img_cover'
+            file = request.files.get(filename)
+            s3Link = event.get(filename)
+            print(file)
+            print(s3Link)
+            if file:
+                imageFiles[filename] = file
+            elif s3Link:
+                imageFiles[filename] = s3Link
+            else:
+                return
+
             images = updateImages(imageFiles, profile_user_id)
             print('after while', images)
 
@@ -630,6 +657,16 @@ class UserProfile(Resource):
                         """)
 
             items = execute(query2, "post", conn)
+            query3 = ("""UPDATE find_me.users
+                        SET  
+                        first_name = \'""" + firstName + """\',
+                        last_name = \'""" + lastName + """\',
+                        phone_number = \'""" + phoneNumber + """\',
+                        role = \'""" + role + """\'
+                        WHERE user_uid = \'""" + profile_user_id + """\'
+                        """)
+            items2 = execute(query3, "post", conn)
+            print(items2)
 
             response["message"] = "successful"
             response["result"] = profile_uid
