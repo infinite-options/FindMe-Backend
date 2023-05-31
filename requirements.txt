@@ -48,6 +48,7 @@ python-dateutil==2.8.2
 python-slugify==8.0.1
 pytz==2023.3
 PyYAML==6.0
+pyzipcode==3.0.1
 requests==2.30.0
 rsa==4.9
 s3transfer==0.6.1
@@ -59,7 +60,7 @@ toml==0.10.2
 tqdm==4.65.0
 troposphere==4.3.2
 twilio==8.1.0
-typing_extensions==4.6.1
+typing-extensions==4.6.1
 uritemplate==4.1.1
 urllib3==1.26.16
 Werkzeug==2.2.3
