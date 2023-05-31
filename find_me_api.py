@@ -339,15 +339,10 @@ class AddEvent(Resource):
             eventStartDate = event["eventStartDate"]
             eventEndDate = event["eventEndDate"]
             # eventPhoto = event["eventPhoto"]
-            questionList = event["preEventQuestionnaire"]
-
-            preEventQuestionnaire = {i: key for i,
-                                     key in enumerate(questionList)}
+            preEventQuestionnaire = event["preEventQuestionnaire"]
 
             event_id_response = execute("CAll get_event_id;", "get", conn)
             new_event_id = event_id_response["result"][0]["new_id"]
-            print("**** ", eventType)
-            print("**** ", preEventQuestionnaire)
 
             query = (
                 """INSERT INTO events
