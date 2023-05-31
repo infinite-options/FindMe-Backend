@@ -328,6 +328,7 @@ class AddEvent(Resource):
             conn = connect()
             event = request.get_json(force=True)
             print("**", event)
+            event_organizer_uid = event["event_organizer_uid"]
             eventType = event["eventType"]
             eventVisibility = event["eventVisibility"]
             eventTitle = event["eventTitle"]
@@ -338,15 +339,10 @@ class AddEvent(Resource):
             eventStartDate = event["eventStartDate"]
             eventEndDate = event["eventEndDate"]
             # eventPhoto = event["eventPhoto"]
-            questionList = event["preEventQuestionnaire"]
-
-            preEventQuestionnaire = {i: key for i,
-                                     key in enumerate(questionList)}
+            preEventQuestionnaire = event["preEventQuestionnaire"]
 
             event_id_response = execute("CAll get_event_id;", "get", conn)
             new_event_id = event_id_response["result"][0]["new_id"]
-            print("**** ", eventType)
-            print("**** ", preEventQuestionnaire)
 
             query = (
                 """INSERT INTO events
@@ -358,6 +354,9 @@ class AddEvent(Resource):
                 + """\',
                                 event_description = \'"""
                 + eventDescription
+                + """\',
+                                event_organizer_uid = \'"""
+                + event_organizer_uid
                 + """\',
                                 event_type = \'"""
                 + eventType
