@@ -111,8 +111,29 @@ BUCKET_NAME = "io-find-me"
 s3 = boto3.client('s3')
 # RDS_PW = RdsPw()
 
+# --------------- Mail Variables ------------------
+# Mail username and password loaded in .env file
+app.config['MAIL_USERNAME'] = os.getenv('SUPPORT_EMAIL')
+app.config['MAIL_PASSWORD'] = os.getenv('SUPPORT_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+
+
+# Setting for mydomain.com
+app.config["MAIL_SERVER"] = "smtp.mydomain.com"
+app.config["MAIL_PORT"] = 465
+
+# Setting for gmail
+# app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+# app.config['MAIL_PORT'] = 465
+
+
+app.config["MAIL_USE_TLS"] = False
+app.config["MAIL_USE_SSL"] = True
+
 # Connect to MySQL database (API v2)
 app.config["DEBUG"] = True
+
+mail = Mail(app)
 
 
 def connect():
@@ -232,6 +253,23 @@ def runSelectQuery(query, cur):
     except:
         raise Exception("Could not run select query and/or return data")
 
+
+def sendEmail(recipient, subject, body):
+    print('in sendemail')
+    with app.app_context():
+        print(recipient, subject, body)
+        msg = Message(
+            sender="support@nityaayurveda.com",
+            recipients=[recipient],
+            subject=subject,
+            body=body
+        )
+        mail.send(msg)
+        print('after mail send')
+
+
+app.sendEmail = sendEmail
+
 # Function to upload image to s3
 
 
@@ -272,9 +310,9 @@ def uploadImage(file, key, content):
     return None
 
 
-def updateImages(imageFiles, id):
+def updateImagesUser(imageFiles, id):
     content = []
-    print('in updateImages')
+    print('in updateImagesUser')
     for filename in imageFiles:
 
         if type(imageFiles[filename]) == str:
@@ -318,6 +356,40 @@ def updateImages(imageFiles, id):
 
 
 # -- FindMe Queries start here -------------------------------------------------------------------------------
+
+class SendEmailAttendee(Resource):
+
+    def post(self):
+        print("In Send EMail get")
+        try:
+            conn = connect()
+            response = {}
+            response['message'] = []
+            data = request.get_json(force=True)
+            print(data)
+            recipient = data['recipient']
+            subject = data['subject']
+            message = data['message']
+            body = (message)
+            # mail.send(msg)
+            for e in range(len(recipient)):
+                try:
+                    sendEmail(recipient[e], subject, body)
+                    response['message'].append(
+                        'Email to ' + recipient[e] + ' sent successfully')
+                except:
+                    response['message'].append(
+                        'Email to ' + recipient[e] + ' failed')
+                    continue
+
+            return response
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
 class AddEvent(Resource):
     def post(self):
         print("In AddEvent")
@@ -327,6 +399,7 @@ class AddEvent(Resource):
         try:
             conn = connect()
             event = request.get_json(force=True)
+            # event = request.form
             print("**", event)
             event_organizer_uid = event["event_organizer_uid"]
             eventType = event["eventType"]
@@ -343,6 +416,25 @@ class AddEvent(Resource):
 
             event_id_response = execute("CAll get_event_id;", "get", conn)
             new_event_id = event_id_response["result"][0]["new_id"]
+
+            # images = []
+            # i = -1
+            # while True:
+            #     print('in while')
+            #     filename = f'img_{i}'
+            #     if i == -1:
+            #         filename = 'img_cover'
+            #     file = request.files.get(filename)
+            #     print('in file', file)
+            #     if file:
+            #         key = f'event/{new_event_id}/{filename}'
+            #         image = uploadImage(file, key, '')
+            #         print('in file', image)
+            #         images.append(image)
+            #     else:
+            #         break
+            #     i += 1
+            # print('after while', images)
 
             query = (
                 """INSERT INTO events
@@ -642,7 +734,7 @@ class UserProfile(Resource):
             else:
                 return
 
-            images = updateImages(imageFiles, profile_user_id)
+            images = updateImagesUser(imageFiles, profile_user_id)
             print('after while', images)
 
             query2 = ("""UPDATE find_me.profile_user 
@@ -1109,6 +1201,9 @@ api.add_resource(GetOrganizers, "/api/v2/GetOrganizers")
 # add user profile
 api.add_resource(UserProfile, "/api/v2/UserProfile")
 api.add_resource(CheckUserProfile, "/api/v2/CheckUserProfile/<string:user_id>")
+
+
+api.add_resource(SendEmailAttendee, "/api/v2/SendEmailAttendee")
 
 
 # Run on below IP address and port
