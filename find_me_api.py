@@ -46,7 +46,7 @@ import googleapiclient.discovery as discovery
 from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
-
+from pyzipcode import ZipCodeDatabase
 #  NEED TO SOLVE THIS
 # from NotificationHub import Notification
 # from NotificationHub import NotificationHub
@@ -831,6 +831,7 @@ class EventAttendees(Resource):
             disconnect(conn)
         return response, 200
 
+
 class GetEvents(Resource):
     def get(self):
         conn = connect()
@@ -898,6 +899,7 @@ class GetOrganizers(Resource):
 
         return response
 
+
 class IsOrganizer(Resource):
     def get(self):
         response = {}
@@ -919,7 +921,7 @@ class IsOrganizer(Resource):
             conn = connect()
             query_result = execute(query, "get", conn)["result"]
             is_organizer = False
-            if len(query_result)>0:
+            if len(query_result) > 0:
                 is_organizer = True
             response["message"] = "successful"
             response["isOrganizer"] = is_organizer
@@ -928,6 +930,7 @@ class IsOrganizer(Resource):
         finally:
             disconnect(conn)
         return response, 200
+
 
 class VerifyCheckinCode(Resource):
     def post(self):
@@ -957,7 +960,7 @@ class VerifyCheckinCode(Resource):
             )
             conn = connect()
             query_result = execute(query, "get", conn)["result"]
-            if len(query_result)<1:
+            if len(query_result) < 1:
                 raise BadRequest
             response["message"] = "successful"
         except BadRequest as e:
@@ -967,6 +970,7 @@ class VerifyCheckinCode(Resource):
         finally:
             disconnect(conn)
         return response, 200
+
 
 class CurrentEvents(Resource):
     def get(self):
@@ -1002,6 +1006,7 @@ class CurrentEvents(Resource):
         finally:
             disconnect(conn)
         return response, 200
+
 
 class EventStatus(Resource):
     def get(self):
@@ -1046,12 +1051,39 @@ class EventStatus(Resource):
             disconnect(conn)
         return response, 200
 
+
+class EventsByZipCodes(Resource):
+    def post(self):
+        print('in EventsByZipCodes')
+        response = {}
+        response["message"] = "Successfully executed SQL query."
+        response["code"]: 280
+        response['result'] = []
+        conn = connect()
+        location = request.get_json()
+        miles = location['miles']
+        zip_code = location['zip_code']
+        zcdb = ZipCodeDatabase()
+        in_radius = [z.zip for z in zcdb.get_zipcodes_around_radius(
+            zip_code, int(miles))]  # ('ZIP', radius in miles)
+
+        print(in_radius)
+        print(type(in_radius))
+
+        query = 'SELECT * from events where event_zip in {}'.format(
+            tuple(in_radius))
+        items = execute(query, "get", conn)
+        print(items)
+        response['result'] = items['result']
+        return response
+
+
 # -- DEFINE APIS -------------------------------------------------------------------------------
 # Define API routes
 # event creation and editing endpoints
 api.add_resource(AddEvent, "/api/v2/AddEvent")
 api.add_resource(GetEvents, "/api/v2/GetEvents")
-
+api.add_resource(EventsByZipCodes, '/api/v2/EventsByZipCodes')
 # event pre-registration endpoints
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
