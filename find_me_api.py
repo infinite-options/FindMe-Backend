@@ -942,27 +942,31 @@ class VerifyCheckinCode(Resource):
             reg_Code = payload["regCode"]
             query = (
                 """
-                SELECT 1
+                SELECT IF(
+                        EXISTS(
+                            SELECT 1
+                            FROM find_me.event_user eu
+                            WHERE eu.eu_user_id = \'"""
+                + user_id
+                + """\'     AND eu.eu_event_id = e.event_uid
+                        ),
+                        TRUE,
+                        FALSE
+                    ) AS has_registered
                 FROM find_me.events e
-                WHERE e.event_registration_code = \'"""
+                WHERE e.event_checkin_code = \'"""
                 + reg_Code
                 + """\' AND e.event_uid = \'"""
                 + event_uid
-                + """\' AND EXISTS(
-                        SELECT *
-                        FROM find_me.event_user eu
-                        WHERE eu.eu_user_id = \'"""
-                + user_id
-                + """\'
-                        AND eu.eu_event_id = e.event_uid
-                    );
+                + """\';
                 """
             )
             conn = connect()
             query_result = execute(query, "get", conn)["result"]
-            if len(query_result) < 1:
+            if len(query_result)<1:
                 raise BadRequest
             response["message"] = "successful"
+            response["hasRegistered"] = query_result[0]["has_registered"]
         except BadRequest as e:
             raise BadRequest("Please enter a valid code.") from e
         except Exception as e:
@@ -970,7 +974,6 @@ class VerifyCheckinCode(Resource):
         finally:
             disconnect(conn)
         return response, 200
-
 
 class CurrentEvents(Resource):
     def get(self):
@@ -982,7 +985,7 @@ class CurrentEvents(Resource):
                     SELECT event_uid,
                         STR_TO_DATE(
                             concat(event_start_date, ' ', event_start_time),
-                            '%m/%d/%Y %H:%i:%s'
+                            '%m/%d/%Y %H:%i:%s %p'
                         ) AS start_datetime
                     FROM find_me.events e
                 )
@@ -991,8 +994,8 @@ class CurrentEvents(Resource):
                     INNER JOIN event_start es ON e.event_uid = es.event_uid
                 WHERE start_datetime >= (
                         STR_TO_DATE(\'"""
-                + datetime.now().strftime('%m/%d/%Y %H:%M:%S')
-                + """\', '%m/%d/%Y %H:%i:%s') - INTERVAL 1 HOUR
+                + datetime.now().strftime('%m/%d/%Y %I:%M:%S %p')
+                + """\', '%m/%d/%Y %h:%i:%s %p') - INTERVAL 1 HOUR
                     )
                 ORDER BY start_datetime;
                 """
@@ -1007,7 +1010,6 @@ class CurrentEvents(Resource):
             disconnect(conn)
         return response, 200
 
-
 class EventStatus(Resource):
     def get(self):
         response = {}
@@ -1019,7 +1021,7 @@ class EventStatus(Resource):
                 WITH event_start AS (
                     SELECT STR_TO_DATE(
                             concat(event_start_date, ' ', event_start_time),
-                            '%m/%d/%Y %H:%i:%s'
+                            '%m/%d/%Y %h:%i:%s %p'
                         ) AS start_datetime
                     FROM find_me.events e
                     WHERE e.event_uid = \'"""
@@ -1029,12 +1031,12 @@ class EventStatus(Resource):
                 SELECT IF(
                         start_datetime BETWEEN (
                             STR_TO_DATE(\'"""
-                + datetime.now().strftime('%m/%d/%Y %H:%M:%S')
-                + """\', '%m/%d/%Y %H:%i:%s') - INTERVAL 1 HOUR
+                + datetime.now().strftime('%m/%d/%Y %I:%M:%S %p')
+                + """\', '%m/%d/%Y %h:%i:%s %p') - INTERVAL 1 HOUR
                         )
                         AND STR_TO_DATE(\'"""
-                + datetime.now().strftime('%m/%d/%Y %H:%M:%S')
-                + """\', '%m/%d/%Y %H:%i:%s'),
+                + datetime.now().strftime('%m/%d/%Y %I:%M:%S %p')
+                + """\', '%m/%d/%Y %h:%i:%s %p'),
                         TRUE,
                         FALSE
                     ) AS event_status
@@ -1042,9 +1044,9 @@ class EventStatus(Resource):
                 """
             )
             conn = connect()
-            event_status = execute(query, "get", conn)["result"]
+            query_result = execute(query, "get", conn)["result"]
             response["message"] = "successful"
-            response["eventStarted"] = event_status[0]
+            response["eventStarted"] = query_result[0]["event_status"]
         except Exception as e:
             raise InternalServerError("An unknown error occured.") from e
         finally:
