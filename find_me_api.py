@@ -419,10 +419,12 @@ class AddEvent(Resource):
             event_id_response = execute("CAll get_event_id;", "get", conn)
             new_event_id = event_id_response["result"][0]["new_id"]
 
-            reg_code_res = execute("CAll get_six_digit_code('registration');", "get", conn)
+            reg_code_res = execute(
+                "CAll get_six_digit_code('registration');", "get", conn)
             event_reg_code = reg_code_res["result"][0]["new_code"]
 
-            ci_code_res = execute("CAll get_six_digit_code('checkin');", "get", conn)
+            ci_code_res = execute(
+                "CAll get_six_digit_code('checkin');", "get", conn)
             event_ci_code = ci_code_res["result"][0]["new_code"]
 
             images = []
@@ -466,9 +468,12 @@ class AddEvent(Resource):
             print(query)
             items = execute(query, "post", conn)
             print(items)
-
+            query2 = ("""SELECT * FROM events e
+                    WHERE event_uid = \'""" + new_event_id + """\';
+                        """)
+            items2 = execute(query2, "get", conn)
             response["message"] = "successful"
-            response["result"] = new_event_id
+            response["result"] = items2['result']
             return response, 200
         except:
             raise BadRequest("Request failed, please try again later.")
