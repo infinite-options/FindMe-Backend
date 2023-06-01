@@ -417,6 +417,12 @@ class AddEvent(Resource):
             event_id_response = execute("CAll get_event_id;", "get", conn)
             new_event_id = event_id_response["result"][0]["new_id"]
 
+            reg_code_res = execute("CAll get_six_digit_code('registration');", "get", conn)
+            event_reg_code = reg_code_res["result"][0]["new_code"]
+
+            ci_code_res = execute("CAll get_six_digit_code('checkin');", "get", conn)
+            event_ci_code = ci_code_res["result"][0]["new_code"]
+
             # images = []
             # i = -1
             # while True:
@@ -470,6 +476,12 @@ class AddEvent(Resource):
                 + """\',
                                 event_capacity = \'"""
                 + eventCapacity
+                + """\',
+                                event_registration_code = \'"""
+                + str(event_reg_code)
+                + """\',
+                                event_checkin_code = \'"""
+                + str(event_ci_code)
                 + """\',
                                pre_event_questionnaire  = \'"""
                 + json.dumps(preEventQuestionnaire)
@@ -1077,18 +1089,14 @@ class CurrentEvents(Resource):
                     SELECT event_uid,
                         STR_TO_DATE(
                             concat(event_start_date, ' ', event_start_time),
-                            '%m/%d/%Y %H:%i:%s %p'
+                            '%m/%d/%Y %h:%i:%s %p'
                         ) AS start_datetime
                     FROM find_me.events e
                 )
                 SELECT e.*
                 FROM find_me.events e
                     INNER JOIN event_start es ON e.event_uid = es.event_uid
-                WHERE start_datetime >= (
-                        STR_TO_DATE(\'"""
-                + datetime.now().strftime('%m/%d/%Y %I:%M:%S %p')
-                + """\', '%m/%d/%Y %h:%i:%s %p') - INTERVAL 1 HOUR
-                    )
+                WHERE start_datetime >= ( NOW() - INTERVAL 1 HOUR )
                 ORDER BY start_datetime;
                 """
             )
@@ -1121,14 +1129,8 @@ class EventStatus(Resource):
                 + """\'
                 )
                 SELECT IF(
-                        start_datetime BETWEEN (
-                            STR_TO_DATE(\'"""
-                + datetime.now().strftime('%m/%d/%Y %I:%M:%S %p')
-                + """\', '%m/%d/%Y %h:%i:%s %p') - INTERVAL 1 HOUR
-                        )
-                        AND STR_TO_DATE(\'"""
-                + datetime.now().strftime('%m/%d/%Y %I:%M:%S %p')
-                + """\', '%m/%d/%Y %h:%i:%s %p'),
+                        start_datetime BETWEEN ( NOW() - INTERVAL 1 HOUR )
+                        AND NOW(),
                         TRUE,
                         FALSE
                     ) AS event_status
