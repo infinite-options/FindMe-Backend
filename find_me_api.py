@@ -297,6 +297,7 @@ def uploadImage(file, key, content):
                    + str(bucket) + '/' + str(key)
 
         print("Back in Helper: ", filename)
+        print("Back in Helper values: ", bucket, " @ ",file, " @ ", key)
         # uploading image to s3 bucket
         upload_file = s3.put_object(
             Bucket=bucket,
@@ -409,6 +410,8 @@ class AddEvent(Resource):
             eventTitle = event["eventTitle"]
             eventDescription = event["eventDescription"]
             eventCapacity = event["eventCapacity"]
+            eventLocation = event["eventLocation"]
+            eventZip = event["eventZip"]
             eventStartTime = event["eventStartTime"]
             eventEndTime = event["eventEndTime"]
             eventStartDate = event["eventStartDate"]
@@ -453,6 +456,8 @@ class AddEvent(Resource):
                     event_description = \'""" + eventDescription + """\',
                     event_organizer_uid = \'""" + event_organizer_uid + """\',
                     event_type = \'""" + eventType + """\',
+                    event_location = \'""" + eventLocation + """\',
+                    event_zip = \'""" + eventZip + """\',
                     event_start_date = \'""" + eventStartDate + """\',
                     event_end_date = \'""" + eventEndDate + """\',
                     event_start_time = \'""" + eventStartTime + """\',      
@@ -1101,29 +1106,43 @@ class EventStatus(Resource):
             event_uid = args["eventId"]
             query = (
                 """
-                WITH event_start AS (
-                    SELECT STR_TO_DATE(
-                            concat(event_start_date, ' ', event_start_time),
-                            '%m/%d/%Y %h:%i:%s %p'
-                        ) AS start_datetime
-                    FROM find_me.events e
-                    WHERE e.event_uid = \'"""
+                SELECT event_status
+                FROM find_me.events 
+                WHERE event_uid = \'"""
                 + event_uid
-                + """\'
-                )
-                SELECT IF(
-                        start_datetime BETWEEN ( NOW() - INTERVAL 1 HOUR )
-                        AND NOW(),
-                        TRUE,
-                        FALSE
-                    ) AS event_status
-                FROM event_start;
+                + """\';
                 """
             )
             conn = connect()
-            query_result = execute(query, "get", conn)["result"]
+            query_result = execute(query, "get", conn, True)["result"]
             response["message"] = "successful"
             response["eventStarted"] = query_result[0]["event_status"]
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+    
+    def put(self):
+        response = {}
+        try:
+            args = request.args
+            event_uid = args["eventId"]
+            event_status = args["eventStatus"]
+            query = (
+                """
+                UPDATE find_me.events 
+                SET event_status = \'"""
+                + event_status
+                + """\' 
+                WHERE event_uid = \'"""
+                + event_uid
+                + """\';
+                """
+            )
+            conn = connect()
+            execute(query, "post", conn)
+            response["message"] = "successful"
         except Exception as e:
             raise InternalServerError("An unknown error occured.") from e
         finally:
