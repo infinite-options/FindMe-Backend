@@ -419,6 +419,12 @@ class AddEvent(Resource):
             event_id_response = execute("CAll get_event_id;", "get", conn)
             new_event_id = event_id_response["result"][0]["new_id"]
 
+            reg_code_res = execute("CAll get_six_digit_code('registration');", "get", conn)
+            event_reg_code = reg_code_res["result"][0]["new_code"]
+
+            ci_code_res = execute("CAll get_six_digit_code('checkin');", "get", conn)
+            event_ci_code = ci_code_res["result"][0]["new_code"]
+
             images = []
             i = -1
             while True:
@@ -451,6 +457,8 @@ class AddEvent(Resource):
                     event_end_time = \'""" + eventEndTime + """\',      
                     event_visibility = \'""" + eventVisibility + """\',                       
                     event_capacity = \'""" + eventCapacity + """\',      
+                    event_registration_code = \'""" + str(event_reg_code) + """\',      
+                    event_checkin_code = \'""" + str(event_ci_code) + """\',      
                     event_photo  = \'""" + json.dumps(images) + """\',      
                     pre_event_questionnaire  = \'""" + (preEventQuestionnaire) + """\';"""
             )
@@ -805,14 +813,14 @@ class NetworkingGraph(Resource):
     def get(self):
         response = {}
         helper_map = {
-            "Founder": ["Founder", "Looking for a new challenge"],
+            "Founder": ["Founder", "Looking for Next Opportunity"],
             "VC": ["VC"],
-            "Looking for a new challenge": ["Looking for a new challenge"],
+            "Looking for Next Opportunity": ["Looking for Next Opportunity"],
         }
         needer_map = {
             "Founder": ["VC"],
             "VC": ["Founder"],
-            "Looking for a new challenge": ["Founder", "VC"],
+            "Looking for Next Opportunity": ["Founder", "VC"],
         }
         try:
             args = request.args
