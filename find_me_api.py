@@ -285,9 +285,11 @@ def uploadImage(file, key, content):
     if type(file) == StreamingBody:
         print('if streaming body')
         contentType = content
-        return
+        filename = 'https://s3-us-west-1.amazonaws.com/' \
+                   + str(bucket) + '/' + str(key)
+        return filename
 
-    if file and allowed_file(file.filename):
+    elif file and allowed_file(file.filename):
         print('if file')
 
         # image link
@@ -398,8 +400,8 @@ class AddEvent(Resource):
 
         try:
             conn = connect()
-            event = request.get_json(force=True)
-            # event = request.form
+            # event = request.get_json(force=True)
+            event = request.form
             print("**", event)
             event_organizer_uid = event["event_organizer_uid"]
             eventType = event["eventType"]
@@ -417,75 +419,40 @@ class AddEvent(Resource):
             event_id_response = execute("CAll get_event_id;", "get", conn)
             new_event_id = event_id_response["result"][0]["new_id"]
 
-            reg_code_res = execute("CAll get_six_digit_code('registration');", "get", conn)
-            event_reg_code = reg_code_res["result"][0]["new_code"]
-
-            ci_code_res = execute("CAll get_six_digit_code('checkin');", "get", conn)
-            event_ci_code = ci_code_res["result"][0]["new_code"]
-
-            # images = []
-            # i = -1
-            # while True:
-            #     print('in while')
-            #     filename = f'img_{i}'
-            #     if i == -1:
-            #         filename = 'img_cover'
-            #     file = request.files.get(filename)
-            #     print('in file', file)
-            #     if file:
-            #         key = f'event/{new_event_id}/{filename}'
-            #         image = uploadImage(file, key, '')
-            #         print('in file', image)
-            #         images.append(image)
-            #     else:
-            #         break
-            #     i += 1
-            # print('after while', images)
+            images = []
+            i = -1
+            while True:
+                print('in while')
+                filename = f'img_{i}'
+                if i == -1:
+                    filename = 'img_cover'
+                file = request.files.get(filename)
+                print('in file', file)
+                if file:
+                    key = f'event/{new_event_id}/{filename}'
+                    image = uploadImage(file, key, '')
+                    print('in file', image)
+                    images.append(image)
+                else:
+                    break
+                i += 1
+            print('after while', images)
 
             query = (
                 """INSERT INTO events
-                           SET event_uid = \'"""
-                + new_event_id
-                + """\',
-                                event_title = \'"""
-                + eventTitle
-                + """\',
-                                event_description = \'"""
-                + eventDescription
-                + """\',
-                                event_organizer_uid = \'"""
-                + event_organizer_uid
-                + """\',
-                                event_type = \'"""
-                + eventType
-                + """\',
-                                event_start_date = \'"""
-                + eventStartDate
-                + """\',
-                                event_end_date = \'"""
-                + eventEndDate
-                + """\',
-                               event_start_time = \'"""
-                + eventStartTime
-                + """\',
-                                event_end_time = \'"""
-                + eventEndTime
-                + """\',
-                                event_visibility = \'"""
-                + eventVisibility
-                + """\',
-                                event_capacity = \'"""
-                + eventCapacity
-                + """\',
-                                event_registration_code = \'"""
-                + str(event_reg_code)
-                + """\',
-                                event_checkin_code = \'"""
-                + str(event_ci_code)
-                + """\',
-                               pre_event_questionnaire  = \'"""
-                + json.dumps(preEventQuestionnaire)
-                + """\';"""
+                SET event_uid = \'""" + new_event_id + """\',
+                    event_title = \'""" + eventTitle + """\',
+                    event_description = \'""" + eventDescription + """\',
+                    event_organizer_uid = \'""" + event_organizer_uid + """\',
+                    event_type = \'""" + eventType + """\',
+                    event_start_date = \'""" + eventStartDate + """\',
+                    event_end_date = \'""" + eventEndDate + """\',
+                    event_start_time = \'""" + eventStartTime + """\',      
+                    event_end_time = \'""" + eventEndTime + """\',      
+                    event_visibility = \'""" + eventVisibility + """\',                       
+                    event_capacity = \'""" + eventCapacity + """\',      
+                    event_photo  = \'""" + json.dumps(images) + """\',      
+                    pre_event_questionnaire  = \'""" + (preEventQuestionnaire) + """\';"""
             )
 
             print(query)
@@ -730,22 +697,22 @@ class UserProfile(Resource):
             images = []
             i = -1
             imageFiles = {}
-
-            # print('if true')
-            filename = f'img_{i}'
-            if i == -1:
-                filename = 'img_cover'
-            file = request.files.get(filename)
-            s3Link = event.get(filename)
-            print(file)
-            print(s3Link)
-            if file:
-                imageFiles[filename] = file
-            elif s3Link:
-                imageFiles[filename] = s3Link
-            else:
-                return
-
+            while True:
+                # print('if true')
+                filename = f'img_{i}'
+                if i == -1:
+                    filename = 'img_cover'
+                file = request.files.get(filename)
+                s3Link = event.get(filename)
+                print(file)
+                print(s3Link)
+                if file:
+                    imageFiles[filename] = file
+                elif s3Link:
+                    imageFiles[filename] = s3Link
+                else:
+                    break
+                i = 1+1
             images = updateImagesUser(imageFiles, profile_user_id)
             print('after while', images)
 
@@ -758,8 +725,9 @@ class UserProfile(Resource):
                         images = \' """ + json.dumps(images) + """ \'
                         WHERE profile_uid = \'""" + profile_uid + """\';
                         """)
-
+            print(query2)
             items = execute(query2, "post", conn)
+            print(items)
             query3 = ("""UPDATE find_me.users
                         SET  
                         first_name = \'""" + firstName + """\',
@@ -1067,7 +1035,7 @@ class VerifyCheckinCode(Resource):
             )
             conn = connect()
             query_result = execute(query, "get", conn)["result"]
-            if len(query_result)<1:
+            if len(query_result) < 1:
                 raise BadRequest
             response["message"] = "successful"
             response["hasRegistered"] = query_result[0]["has_registered"]
@@ -1078,6 +1046,7 @@ class VerifyCheckinCode(Resource):
         finally:
             disconnect(conn)
         return response, 200
+
 
 class CurrentEvents(Resource):
     def get(self):
@@ -1109,6 +1078,7 @@ class CurrentEvents(Resource):
         finally:
             disconnect(conn)
         return response, 200
+
 
 class EventStatus(Resource):
     def get(self):
