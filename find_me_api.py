@@ -297,6 +297,7 @@ def uploadImage(file, key, content):
                    + str(bucket) + '/' + str(key)
 
         print("Back in Helper: ", filename)
+        print("Back in Helper values: ", bucket, " @ ",file, " @ ", key)
         # uploading image to s3 bucket
         upload_file = s3.put_object(
             Bucket=bucket,
@@ -409,6 +410,8 @@ class AddEvent(Resource):
             eventTitle = event["eventTitle"]
             eventDescription = event["eventDescription"]
             eventCapacity = event["eventCapacity"]
+            eventLocation = event["eventLocation"]
+            eventZip = event["eventZip"]
             eventStartTime = event["eventStartTime"]
             eventEndTime = event["eventEndTime"]
             eventStartDate = event["eventStartDate"]
@@ -453,6 +456,8 @@ class AddEvent(Resource):
                     event_description = \'""" + eventDescription + """\',
                     event_organizer_uid = \'""" + event_organizer_uid + """\',
                     event_type = \'""" + eventType + """\',
+                    event_location = \'""" + eventLocation + """\',
+                    event_zip = \'""" + eventZip + """\',
                     event_start_date = \'""" + eventStartDate + """\',
                     event_end_date = \'""" + eventEndDate + """\',
                     event_start_time = \'""" + eventStartTime + """\',      
