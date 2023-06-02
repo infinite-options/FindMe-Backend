@@ -487,8 +487,8 @@ class AddEvent(Resource):
             query = (
                 """INSERT INTO events
                 SET event_uid = \'""" + new_event_id + """\',
-                    event_title = \'""" + eventTitle + """\',
-                    event_description = \'""" + eventDescription + """\',
+                    event_title = \'""" + str(eventTitle).replace("'", "''") + """\',
+                    event_description = \'""" + str(eventDescription).replace("'", "''") + """\',
                     event_organizer_uid = \'""" + event_organizer_uid + """\',
                     event_type = \'""" + eventType + """\',
                     event_location = \'""" + eventLocation + """\',
@@ -502,7 +502,7 @@ class AddEvent(Resource):
                     event_registration_code = \'""" + str(event_reg_code) + """\',      
                     event_checkin_code = \'""" + str(event_ci_code) + """\',      
                     event_photo  = \'""" + json.dumps(images) + """\',      
-                    pre_event_questionnaire  = \'""" + (preEventQuestionnaire) + """\';"""
+                    pre_event_questionnaire  = \'""" + str(preEventQuestionnaire).replace("'", "''") + """\';"""
             )
 
             print(query)
@@ -572,8 +572,8 @@ class UpdateEvent(Resource):
 
             query = (
                 """UPDATE  events SET
-                    event_title = \'""" + eventTitle + """\',
-                    event_description = \'""" + eventDescription + """\',
+                    event_title = \'""" + str(eventTitle).replace("'", "''") + """\',
+                    event_description = \'""" + str(eventDescription).replace("'", "''") + """\',
                     event_organizer_uid = \'""" + event_organizer_uid + """\',
                     event_type = \'""" + eventType + """\',
                     event_location = \'""" + eventLocation + """\',
@@ -585,7 +585,7 @@ class UpdateEvent(Resource):
                     event_visibility = \'""" + eventVisibility + """\',                       
                     event_capacity = \'""" + eventCapacity + """\',         
                     event_photo  = \'""" + json.dumps(images) + """\',      
-                    pre_event_questionnaire  = \'""" + (preEventQuestionnaire) + """\',
+                    pre_event_questionnaire  = \'""" + str(preEventQuestionnaire).replace("'", "''") + """\',
                     event_registration_code = \'""" + eventRegCode + """\'
                     WHERE  event_uid = \'""" + event_uid + """\';"""
             )
@@ -640,7 +640,7 @@ class EventUser(Resource):
                         event_user_uid = \'""" + newEventUserID + """\',
                         eu_user_id = \'""" + eu_user_id + """\',
                         eu_event_id = \'""" + eu_event_id + """\',
-                        eu_qas = \'""" + json.dumps(eu_qas) + """\';
+                        eu_qas = \'""" + (str(eu_qas).replace("'", "''")) + """\';
                         """)
             print(query2)
             items = execute(query2, "post", conn)
@@ -665,7 +665,7 @@ class EventUser(Resource):
 
             query = ("""UPDATE  event_user 
                         SET
-                        eu_qas = \'""" + json.dumps(eu_qas) + """\'
+                        eu_qas = \'""" + (str(eu_qas).replace("'", "''")) + """\'
                         WHERE event_user_uid = \'""" + event_user_uid + """\';
                         """)
             print(query)
@@ -791,7 +791,7 @@ class UserProfile(Resource):
                         profile_user_id = \'""" + profile_user_id + """\',
                         title = \'""" + title + """\',
                         company = \'""" + company + """\',
-                        catch_phrase = \'""" + catch_phrase + """\',
+                        catch_phrase = \'""" + str(catch_phrase).replace("'", "''") + """\',
                         images = \' """ + json.dumps(images) + """ \';
                         """)
             print(query2)
@@ -859,7 +859,7 @@ class UserProfile(Resource):
                         profile_user_id = \'""" + profile_user_id + """\',
                         title = \'""" + title + """\',
                         company = \'""" + company + """\',
-                        catch_phrase = \'""" + catch_phrase + """\',
+                        catch_phrase = \'""" + str(catch_phrase).replace("'", "''") + """\',
                         images = \' """ + json.dumps(images) + """ \'
                         WHERE profile_uid = \'""" + profile_uid + """\';
                         """)
