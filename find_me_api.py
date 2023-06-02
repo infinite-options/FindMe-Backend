@@ -393,7 +393,7 @@ def convertToUTC(dateTime):
     utc_dt = local_dt.astimezone(pytz.utc)
     utc_dateTime = {}
     utc_dateTime["date"] = utc_dt.strftime("%m/%d/%Y")
-    utc_dateTime["time"] = utc_dt.strftime("%I:%M:%S %p")
+    utc_dateTime["time"] = utc_dt.strftime("%I:%M %p")
     print(utc_dateTime)
     return utc_dateTime
 # -- Stored Procedures start here -------------------------------------------------------------------------------
