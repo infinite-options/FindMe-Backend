@@ -297,7 +297,7 @@ def uploadImage(file, key, content):
                    + str(bucket) + '/' + str(key)
 
         print("Back in Helper: ", filename)
-        print("Back in Helper values: ", bucket, " @ ",file, " @ ", key)
+        print("Back in Helper values: ", bucket, " @ ", file, " @ ", key)
         # uploading image to s3 bucket
         upload_file = s3.put_object(
             Bucket=bucket,
@@ -344,6 +344,45 @@ def updateImagesUser(imageFiles, id):
         if i == 0:
             filename = 'img_cover'
         key = f'user/{id}/{filename}'
+        print(content[i])
+        image = uploadImage(
+            imageFiles[filename], key, content[i])
+
+        images.append(image)
+    return images
+
+
+def updateImagesEvent(imageFiles, id):
+    content = []
+    print('in updateImagesEvent')
+    for filename in imageFiles:
+
+        if type(imageFiles[filename]) == str:
+            print('in str')
+            bucket = 'io-find-me'
+            key = imageFiles[filename].split('/io-find-me/')[1]
+            print(bucket, key)
+            data = s3.get_object(
+                Bucket=bucket,
+                Key=key
+            )
+            imageFiles[filename] = data['Body']
+            content.append(data['ContentType'])
+            print(content)
+        else:
+            content.append('')
+
+    s3Resource = boto3.resource('s3')
+    bucket = s3Resource.Bucket('io-find-me')
+    # bucket.objects.filter(
+    #     Prefix=f'user/{id}/').delete()
+    images = []
+    for i in range(len(imageFiles.keys())):
+
+        filename = f'img_{i-1}'
+        if i == 0:
+            filename = 'img_cover'
+        key = f'event/{id}/{filename}'
         print(content[i])
         image = uploadImage(
             imageFiles[filename], key, content[i])
@@ -475,6 +514,91 @@ class AddEvent(Resource):
             print(items)
             query2 = ("""SELECT * FROM events e
                     WHERE event_uid = \'""" + new_event_id + """\';
+                        """)
+            items2 = execute(query2, "get", conn)
+            response["message"] = "successful"
+            response["result"] = items2['result']
+            return response, 200
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class UpdateEvent(Resource):
+    def put(self):
+        print("In UpdateEvent")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            # event = request.get_json(force=True)
+            event = request.form
+            print("**", event)
+            event_uid = event["event_uid"]
+            event_organizer_uid = event["event_organizer_uid"]
+            eventType = event["eventType"]
+            eventVisibility = event["eventVisibility"]
+            eventTitle = event["eventTitle"]
+            eventDescription = event["eventDescription"]
+            eventCapacity = event["eventCapacity"]
+            eventLocation = event["eventLocation"]
+            eventZip = event["eventZip"]
+            eventStartTime = event["eventStartTime"]
+            eventEndTime = event["eventEndTime"]
+            eventStartDate = event["eventStartDate"]
+            eventEndDate = event["eventEndDate"]
+            eventRegCode = event["eventRegCode"]
+            preEventQuestionnaire = event["preEventQuestionnaire"]
+
+            images = []
+            i = -1
+            imageFiles = {}
+            while True:
+                # print('if true')
+                filename = f'img_{i}'
+                if i == -1:
+                    filename = 'img_cover'
+                file = request.files.get(filename)
+                s3Link = event.get(filename)
+                print(file)
+                print(s3Link)
+                if file:
+                    imageFiles[filename] = file
+                elif s3Link:
+                    imageFiles[filename] = s3Link
+                else:
+                    break
+                i = 1+1
+            images = updateImagesEvent(imageFiles, event_uid)
+            print('after while', images)
+
+            query = (
+                """UPDATE  events SET
+                    event_title = \'""" + eventTitle + """\',
+                    event_description = \'""" + eventDescription + """\',
+                    event_organizer_uid = \'""" + event_organizer_uid + """\',
+                    event_type = \'""" + eventType + """\',
+                    event_location = \'""" + eventLocation + """\',
+                    event_zip = \'""" + eventZip + """\',
+                    event_start_date = \'""" + eventStartDate + """\',
+                    event_end_date = \'""" + eventEndDate + """\',
+                    event_start_time = \'""" + eventStartTime + """\',      
+                    event_end_time = \'""" + eventEndTime + """\',      
+                    event_visibility = \'""" + eventVisibility + """\',                       
+                    event_capacity = \'""" + eventCapacity + """\',         
+                    event_photo  = \'""" + json.dumps(images) + """\',      
+                    pre_event_questionnaire  = \'""" + (preEventQuestionnaire) + """\',
+                    event_registration_code = \'""" + eventRegCode + """\'
+                    WHERE  event_uid = \'""" + event_uid + """\';"""
+            )
+
+            print(query)
+            items = execute(query, "post", conn)
+            print(items)
+            query2 = ("""SELECT * FROM events e
+                    WHERE event_uid = \'""" + event_uid + """\';
                         """)
             items2 = execute(query2, "get", conn)
             response["message"] = "successful"
@@ -1122,7 +1246,7 @@ class EventStatus(Resource):
         finally:
             disconnect(conn)
         return response, 200
-    
+
     def put(self):
         response = {}
         try:
@@ -1176,12 +1300,32 @@ class EventsByZipCodes(Resource):
         return response
 
 
+class EventsByCity(Resource):
+    def post(self):
+        print('in EventsByZipCodes')
+        response = {}
+        response["message"] = "Successfully executed SQL query."
+        response["code"]: 280
+        response['result'] = []
+        conn = connect()
+        location = request.get_json()
+        city = location['city']
+
+        query = """SELECT * from events where event_location LIKE '%""" + city + """%' """
+        items = execute(query, "get", conn)
+        print(items)
+        response['result'] = items['result']
+        return response
+
+
 # -- DEFINE APIS -------------------------------------------------------------------------------
 # Define API routes
 # event creation and editing endpoints
 api.add_resource(AddEvent, "/api/v2/AddEvent")
+api.add_resource(UpdateEvent, "/api/v2/UpdateEvent")
 api.add_resource(GetEvents, "/api/v2/GetEvents")
 api.add_resource(EventsByZipCodes, '/api/v2/EventsByZipCodes')
+api.add_resource(EventsByCity, '/api/v2/EventsByCity')
 # event pre-registration endpoints
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
