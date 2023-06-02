@@ -386,6 +386,7 @@ def updateImagesEvent(imageFiles, id):
         images.append(image)
     return images
 
+
 def convertToUTC(dateTime):
     local = pytz.timezone("America/Los_Angeles")
     naive = datetime.strptime(dateTime, "%m/%d/%Y %I:%M:%S %p")
@@ -463,14 +464,14 @@ class AddEvent(Resource):
             # eventPhoto = event["eventPhoto"]
             preEventQuestionnaire = event["preEventQuestionnaire"]
 
-            eventStartDateTime = eventStartDate + " " +eventStartTime
+            eventStartDateTime = eventStartDate + " " + eventStartTime
             # print(" eventStartDateTime ",eventStartDateTime)
             eventStartDateTimeUTC = convertToUTC(eventStartDateTime)
             eventStartDate = eventStartDateTimeUTC["date"]
             eventStartTime = eventStartDateTimeUTC["time"]
             # print("eventStartDate ",eventStartDate, " eventStartTime ",eventStartTime)
 
-            eventEndDateTime = eventEndDate + " " +eventEndTime
+            eventEndDateTime = eventEndDate + " " + eventEndTime
             # print(" eventEndDateTime ",eventEndDateTime)
             eventEndDateTimeUTC = convertToUTC(eventEndDateTime)
             eventEndDate = eventEndDateTimeUTC["date"]
@@ -568,9 +569,9 @@ class UpdateEvent(Resource):
             eventEndTime = event["eventEndTime"]
             eventStartDate = event["eventStartDate"]
             eventEndDate = event["eventEndDate"]
-            eventRegCode = event["eventRegCode"]
+            eventRegCode = event["eventRegistrationCode"]
             preEventQuestionnaire = event["preEventQuestionnaire"]
-
+            print('after event')
             images = []
             i = -1
             imageFiles = {}
