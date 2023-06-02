@@ -1219,7 +1219,7 @@ class CurrentEvents(Resource):
                     SELECT event_uid,
                         STR_TO_DATE(
                             concat(event_start_date, ' ', event_start_time),
-                            '%m/%d/%Y %h:%i:%s %p'
+                            '%m/%d/%Y %h:%i %p'
                         ) AS start_datetime
                     FROM find_me.events e
                 )
