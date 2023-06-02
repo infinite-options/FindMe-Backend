@@ -122,10 +122,6 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
 app.config["MAIL_SERVER"] = "smtp.mydomain.com"
 app.config["MAIL_PORT"] = 465
 
-# Setting for gmail
-# app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-# app.config['MAIL_PORT'] = 465
-
 
 app.config["MAIL_USE_TLS"] = False
 app.config["MAIL_USE_SSL"] = True
@@ -259,7 +255,7 @@ def sendEmail(recipient, subject, body):
     with app.app_context():
         print(recipient, subject, body)
         msg = Message(
-            sender="support@nityaayurveda.com",
+            sender=app.config["MAIL_USERNAME"],
             recipients=[recipient],
             subject=subject,
             body=body
@@ -1026,7 +1022,7 @@ class EventAttendees(Resource):
             event_id = args["eventId"]
             query = (
                 """
-                SELECT user_uid, first_name, last_name, role
+                SELECT user_uid, first_name, last_name, role, email, phone_number
                 FROM find_me.users u INNER JOIN find_me.event_user eu 
                     ON u.user_uid = eu.eu_user_id
                 WHERE eu.eu_event_id = \'"""
