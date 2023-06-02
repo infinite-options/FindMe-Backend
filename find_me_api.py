@@ -386,7 +386,16 @@ def updateImagesEvent(imageFiles, id):
         images.append(image)
     return images
 
-
+def convertToUTC(dateTime):
+    local = pytz.timezone("America/Los_Angeles")
+    naive = datetime.strptime(dateTime, "%m/%d/%Y %I:%M:%S %p")
+    local_dt = local.localize(naive, is_dst=None)
+    utc_dt = local_dt.astimezone(pytz.utc)
+    utc_dateTime = {}
+    utc_dateTime["date"] = utc_dt.strftime("%m/%d/%Y")
+    utc_dateTime["time"] = utc_dt.strftime("%I:%M:%S %p")
+    print(utc_dateTime)
+    return utc_dateTime
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
 
@@ -453,6 +462,20 @@ class AddEvent(Resource):
             eventEndDate = event["eventEndDate"]
             # eventPhoto = event["eventPhoto"]
             preEventQuestionnaire = event["preEventQuestionnaire"]
+
+            eventStartDateTime = eventStartDate + " " +eventStartTime
+            # print(" eventStartDateTime ",eventStartDateTime)
+            eventStartDateTimeUTC = convertToUTC(eventStartDateTime)
+            eventStartDate = eventStartDateTimeUTC["date"]
+            eventStartTime = eventStartDateTimeUTC["time"]
+            # print("eventStartDate ",eventStartDate, " eventStartTime ",eventStartTime)
+
+            eventEndDateTime = eventEndDate + " " +eventEndTime
+            # print(" eventEndDateTime ",eventEndDateTime)
+            eventEndDateTimeUTC = convertToUTC(eventEndDateTime)
+            eventEndDate = eventEndDateTimeUTC["date"]
+            eventEndTime = eventEndDateTimeUTC["time"]
+            # print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
 
             event_id_response = execute("CAll get_event_id;", "get", conn)
             new_event_id = event_id_response["result"][0]["new_id"]
