@@ -1534,6 +1534,41 @@ class EventsByCity(Resource):
         return response
 
 
+class EventRegistrant(Resource):
+    def get(self):
+        response = {}
+        try:
+            args = request.args
+            event_id = args["eventId"]
+            registrant_id = args["registrantId"]
+            query = (
+                """
+                SELECT user_uid, first_name, last_name, role, email, 
+                    phone_number, images, catch_phrase, eu_qas
+                FROM find_me.users u INNER JOIN find_me.event_user eu 
+                    ON u.user_uid = eu.eu_user_id
+                    INNER JOIN find_me.profile_user pu 
+                    ON u.user_uid = pu.profile_user_id
+                WHERE eu.eu_event_id = \'"""
+                + event_id
+                + """\' 
+                AND u.user_uid = \'"""
+                + registrant_id
+                + """\';
+                """
+            )
+            conn = connect()
+            registrant = execute(query, "get", conn)["result"][0]
+
+            response["message"] = "successful"
+            response["registrant"] = registrant
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+
+
 # -- DEFINE APIS -------------------------------------------------------------------------------
 # Define API routes
 # event creation and editing endpoints
@@ -1553,6 +1588,7 @@ api.add_resource(IsOrganizer, "/api/v2/isOrganizer")
 api.add_resource(VerifyCheckinCode, "/api/v2/verifyCheckinCode")
 api.add_resource(CurrentEvents, "/api/v2/currentEvents")
 api.add_resource(EventStatus, "/api/v2/eventStatus")
+api.add_resource(EventRegistrant, "/api/v2/eventRegistrant")
 
 # add event and user relationship + questions
 
