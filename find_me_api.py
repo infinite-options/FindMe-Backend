@@ -386,8 +386,7 @@ def updateImagesEvent(imageFiles, id):
         images.append(image)
     return images
 
-
-def convertToUTC(dateTime):
+def convertLocalToUTC(dateTime):
     local = pytz.timezone("America/Los_Angeles")
     naive = datetime.strptime(dateTime, "%m/%d/%Y %I:%M:%S %p")
     local_dt = local.localize(naive, is_dst=None)
@@ -397,6 +396,36 @@ def convertToUTC(dateTime):
     utc_dateTime["time"] = utc_dt.strftime("%I:%M %p")
     print(utc_dateTime)
     return utc_dateTime
+
+def convertUtcToLocal(dateTime):
+    from_zone = tz.gettz('UTC')
+    to_zone = tz.gettz('America/Los_Angeles')
+    utc = datetime.strptime(dateTime, '%m/%d/%Y %I:%M %p')
+    utc = utc.replace(tzinfo=from_zone)
+    local_dt = utc.astimezone(to_zone)
+    local_dateTime = {}
+    local_dateTime["date"] = local_dt.strftime("%m/%d/%Y")
+    local_dateTime["time"] = local_dt.strftime("%I:%M %p")
+    # print(" local_dateTime ",local_dateTime)
+    return local_dateTime
+
+def eventListIterator(items):
+    events = items["result"]
+    for event in events:
+        if event["event_start_date"] and event["event_start_time"]:
+            start_datetime = event["event_start_date"] + " " + event["event_start_time"]
+            # print(start_datetime)
+            local_start_datetime = convertUtcToLocal(start_datetime)
+            event["event_start_date"] = local_start_datetime["date"]
+            event["event_start_time"] = local_start_datetime["time"]
+        if event["event_end_date"] and event["event_end_time"]:
+            end_datetime = event["event_end_date"] + " " + event["event_end_time"]
+            # print(end_datetime)
+            local_end_datetime = convertUtcToLocal(end_datetime)
+            event["event_end_date"] = local_end_datetime["date"]
+            event["event_end_time"] = local_end_datetime["time"]
+    return items
+
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
 
@@ -466,14 +495,14 @@ class AddEvent(Resource):
 
             eventStartDateTime = eventStartDate + " " + eventStartTime
             # print(" eventStartDateTime ",eventStartDateTime)
-            eventStartDateTimeUTC = convertToUTC(eventStartDateTime)
+            eventStartDateTimeUTC = convertLocalToUTC(eventStartDateTime)
             eventStartDate = eventStartDateTimeUTC["date"]
             eventStartTime = eventStartDateTimeUTC["time"]
             # print("eventStartDate ",eventStartDate, " eventStartTime ",eventStartTime)
 
             eventEndDateTime = eventEndDate + " " + eventEndTime
             # print(" eventEndDateTime ",eventEndDateTime)
-            eventEndDateTimeUTC = convertToUTC(eventEndDateTime)
+            eventEndDateTimeUTC = convertLocalToUTC(eventEndDateTime)
             eventEndDate = eventEndDateTimeUTC["date"]
             eventEndTime = eventEndDateTimeUTC["time"]
             # print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
@@ -571,7 +600,21 @@ class UpdateEvent(Resource):
             eventEndDate = event["eventEndDate"]
             eventRegCode = event["eventRegistrationCode"]
             preEventQuestionnaire = event["preEventQuestionnaire"]
-            print('after event')
+
+            eventStartDateTime = eventStartDate + " " +eventStartTime
+            # print(" eventStartDateTime ",eventStartDateTime)
+            eventStartDateTimeUTC = convertLocalToUTC(eventStartDateTime)
+            eventStartDate = eventStartDateTimeUTC["date"]
+            eventStartTime = eventStartDateTimeUTC["time"]
+            # print("eventStartDate ",eventStartDate, " eventStartTime ",eventStartTime)
+
+            eventEndDateTime = eventEndDate + " " +eventEndTime
+            # print(" eventEndDateTime ",eventEndDateTime)
+            eventEndDateTimeUTC = convertLocalToUTC(eventEndDateTime)
+            eventEndDate = eventEndDateTimeUTC["date"]
+            eventEndTime = eventEndDateTimeUTC["time"]
+            # print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
+
             images = []
             i = -1
             imageFiles = {}
@@ -1090,7 +1133,10 @@ class GetEvents(Resource):
                         WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\';
                         """)
             items = execute(query, "get", conn)
-
+        # print(item)
+        
+        # converting event time from UTC to local timezone
+        items = eventListIterator(items)
         return items
 
 
@@ -1316,6 +1362,10 @@ class EventsByZipCodes(Resource):
             tuple(in_radius))
         items = execute(query, "get", conn)
         print(items)
+
+        # converting event time from UTC to local timezone
+        items = eventListIterator(items)
+
         response['result'] = items['result']
         return response
 
@@ -1334,6 +1384,10 @@ class EventsByCity(Resource):
         query = """SELECT * from events where event_location LIKE '%""" + city + """%' """
         items = execute(query, "get", conn)
         print(items)
+
+        # converting event time from UTC to local timezone
+        items = eventListIterator(items)
+
         response['result'] = items['result']
         return response
 
