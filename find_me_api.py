@@ -18,6 +18,7 @@ import boto3
 import json
 import math
 import httplib2
+
 from botocore.response import StreamingBody
 from datetime import time, date, datetime, timedelta
 import calendar
@@ -27,6 +28,8 @@ import random
 import string
 import stripe
 
+import smtplib
+from email.message import EmailMessage
 
 from flask import Flask, request, render_template
 from flask_restful import Resource, Api
@@ -65,6 +68,7 @@ import string
 import random
 import hashlib
 
+from email.mime.text import MIMEText
 # BING API KEY
 # Import Bing API key into bing_api_key.py
 
@@ -117,6 +121,8 @@ app.config['MAIL_USERNAME'] = os.getenv('SUPPORT_EMAIL')
 app.config['MAIL_PASSWORD'] = os.getenv('SUPPORT_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
 
+EMAIL_ADDRESS = os.getenv('SUPPORT_EMAIL')
+EMAIL_PASSWORD = os.getenv('SUPPORT_PASSWORD')
 
 # Setting for mydomain.com
 app.config["MAIL_SERVER"] = "smtp.mydomain.com"
@@ -443,21 +449,157 @@ class SendEmailAttendee(Resource):
             response = {}
             response['message'] = []
             data = request.get_json(force=True)
-            print(data)
+            # print(data)
             recipient = data['recipient']
             subject = data['subject']
             message = data['message']
-            body = (message)
-            # mail.send(msg)
-            for e in range(len(recipient)):
-                try:
-                    sendEmail(recipient[e], subject, body)
-                    response['message'].append(
-                        'Email to ' + recipient[e] + ' sent successfully')
-                except:
-                    response['message'].append(
-                        'Email to ' + recipient[e] + ' failed')
-                    continue
+            organizer = data['event_organizer_uid']
+            eventTitle = data["eventTitle"]
+            eventDescription = data["eventDescription"]
+            eventLocation = data["eventLocation"]
+            eventStartTime = data["eventStartTime"]
+            eventEndTime = data["eventEndTime"]
+            eventStartDate = datetime.strptime(
+                data["eventStartDate"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+            eventEndDate = datetime.strptime(
+                data["eventEndDate"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+            eventRegistrationCode = data["eventRegistrationCode"]
+            eventPhoto = json.loads(data["eventPhoto"])[0]
+            eventCheckinCode = (data["eventCheckinCode"])
+            # print(organizer)
+            query = """ SELECT * FROM users 
+                        WHERE user_uid = \'""" + organizer + """\'"""
+            items = execute(query, 'get', conn)
+
+            # print(msg)
+            with smtplib.SMTP_SSL('smtp.mydomain.com', 465) as smtp:
+                print('here')
+                smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+                for e in range(len(recipient)):
+                    print(recipient[e])
+                    try:
+                        print('in try', recipient[e])
+
+                        msg = EmailMessage()
+                        msg['Subject'] = str(eventTitle) + ': ' + str(subject)
+                        msg['From'] = app.config["MAIL_USERNAME"]
+                        msg['To'] = [recipient[e]]
+                        # print(msg)
+                        html = """\
+                        <!DOCTYPE html>
+                        <html>
+                            <body style="background-color:#eee;padding:10px 20px;align:center">
+                                <div style="padding:20px 0px">
+                                    <div>
+                                        <img src= """ + str(eventPhoto) + """ style="display:block;margin-left:auto;margin-right:auto;width:50%;">
+                                        <div style="text-align:center;display:block;margin-left:auto;margin-right:auto;width:30%;">
+                                        <h3>Message from the Organizer: """ + str(message) + """ </h3>
+                                        </div>
+                                        <div style="text-align:center;display:block;margin-left:auto;margin-right:auto;width:30%;">
+                                            <h1>""" + str(eventTitle) + """</h1>
+                                            <h3>""" + str(eventDescription) + """</h3>
+                                            <h4>Event Date: """ + str(eventStartDate) + """ from """ + str(eventStartTime) + """ to """ + str(eventEndTime) + """</h4>
+                                            <p>Event Location:  """ + str(eventLocation) + """</p>
+                                            <p>Event Registration Code:  """ + str(eventRegistrationCode) + """</p>
+                                            <p>Event Check-in Code:  """ + str(eventCheckinCode) + """</p>
+                                
+                                        </div>
+                                    </div>
+                                </div>
+                            </body>
+                        </html>
+                        """.format(items)
+                        msg.set_content(html, subtype='html')
+                        print(msg)
+                        smtp.send_message(msg)
+                        response['message'].append(
+                            'Email to ' + recipient[e] + ' sent successfully')
+                    except:
+                        print('in except', recipient[e])
+                        response['message'].append(
+                            'Email to ' + recipient[e] + ' failed')
+                        continue
+
+            return response
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class SendEventDetails(Resource):
+
+    def post(self):
+        print("In Send EMail get")
+        try:
+            conn = connect()
+            response = {}
+            response['message'] = []
+            data = request.get_json(force=True)
+            print(data)
+            organizer = data['event_organizer_uid']
+            eventType = data["event_type"]
+            eventVisibility = data["event_visibility"]
+            eventTitle = data["event_title"]
+            eventDescription = data["event_description"]
+            eventCapacity = data["event_capacity"]
+            eventLocation = data["event_location"]
+            eventStartTime = data["event_start_time"]
+            eventEndTime = data["event_end_time"]
+            eventStartDate = datetime.strptime(
+                data["event_start_date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+            eventEndDate = datetime.strptime(
+                data["event_end_date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+            eventRegCode = data["event_registration_code"]
+            preEventQuestionnaire = json.loads(data["pre_event_questionnaire"])
+            eventPhoto = json.loads(data["event_photo"])[0]
+            eventCheckinCode = (data["event_checkin_code"])
+            # print(organizer)
+            query = """ SELECT * FROM users 
+                        WHERE user_uid = \'""" + organizer + """\'"""
+            items = execute(query, 'get', conn)
+            # print(eventStartDate)
+
+            recipient = items['result'][0]['email']
+            msg = EmailMessage()
+            msg['Subject'] = str(eventTitle) + ': New Event Created'
+            msg['From'] = app.config["MAIL_USERNAME"]
+            msg['To'] = [recipient]
+            # print(msg)
+            items = ["<li>{}</li>".format(s['question'])
+                     for s in preEventQuestionnaire]
+            items = "".join(items)
+            # print(items)
+            html = """\
+            <!DOCTYPE html>
+            <html>
+                <body style="background-color:#eee;padding:10px 20px;align:center">
+                    <div style="padding:20px 0px">
+                        <div>
+                            <img src= """ + str(eventPhoto) + """ style="display:block;margin-left:auto;margin-right:auto;width:50%;">
+                            <div style="text-align:center;display:block;margin-left:auto;margin-right:auto;width:30%;">
+                                <h1>""" + str(eventTitle) + """</h1>
+                                <h3>""" + str(eventDescription) + """</h3>
+                                <h4>Event Date: """ + str(eventStartDate) + """ from """ + str(eventStartTime) + """ to """ + str(eventEndTime) + """</h4>
+                                <p>Event Location:  """ + str(eventLocation) + """</p>
+                                <p>Event Type:  """ + str(eventType) + """</p>
+                                <p>Event Visibility:  """ + str(eventVisibility) + """</p>
+                                <p>Event Capacity:  """ + str(eventCapacity) + """</p>
+                                <p>Event Registration Code:  """ + str(eventRegCode) + """</p>
+                                <p>Event Check-in Code:  """ + str(eventCheckinCode) + """</p>
+                                <p>Pre-event Questionnare: {0}</p>
+                             </div>
+                        </div>
+                    </div>
+                </body>
+            </html>
+            """.format(items)
+            msg.set_content(html, subtype='html')
+            # print(msg)
+            with smtplib.SMTP_SSL('smtp.mydomain.com', 465) as smtp:
+                smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+                smtp.send_message(msg)
 
             return response
 
@@ -1426,6 +1568,7 @@ api.add_resource(CheckUserProfile, "/api/v2/CheckUserProfile/<string:user_id>")
 
 
 api.add_resource(SendEmailAttendee, "/api/v2/SendEmailAttendee")
+api.add_resource(SendEventDetails, "/api/v2/SendEventDetails")
 
 
 # Run on below IP address and port
