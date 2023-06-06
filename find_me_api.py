@@ -392,8 +392,8 @@ def updateImagesEvent(imageFiles, id):
         images.append(image)
     return images
 
-def convertLocalToUTC(dateTime):
-    local = pytz.timezone("America/Los_Angeles")
+def convertLocalToUTC(dateTime, user_timezone):
+    local = pytz.timezone(user_timezone)
     naive = datetime.strptime(dateTime, "%m/%d/%Y %I:%M:%S %p")
     local_dt = local.localize(naive, is_dst=None)
     utc_dt = local_dt.astimezone(pytz.utc)
@@ -403,9 +403,9 @@ def convertLocalToUTC(dateTime):
     print(utc_dateTime)
     return utc_dateTime
 
-def convertUtcToLocal(dateTime):
+def convertUtcToLocal(dateTime, user_timezone):
     from_zone = tz.gettz('UTC')
-    to_zone = tz.gettz('America/Los_Angeles')
+    to_zone = tz.gettz(user_timezone)
     utc = datetime.strptime(dateTime, '%m/%d/%Y %I:%M %p')
     utc = utc.replace(tzinfo=from_zone)
     local_dt = utc.astimezone(to_zone)
@@ -415,19 +415,19 @@ def convertUtcToLocal(dateTime):
     # print(" local_dateTime ",local_dateTime)
     return local_dateTime
 
-def eventListIterator(items):
+def eventListIterator(items, user_timezone):
     events = items["result"]
     for event in events:
         if event["event_start_date"] and event["event_start_time"]:
             start_datetime = event["event_start_date"] + " " + event["event_start_time"]
             # print(start_datetime)
-            local_start_datetime = convertUtcToLocal(start_datetime)
+            local_start_datetime = convertUtcToLocal(start_datetime, user_timezone)
             event["event_start_date"] = local_start_datetime["date"]
             event["event_start_time"] = local_start_datetime["time"]
         if event["event_end_date"] and event["event_end_time"]:
             end_datetime = event["event_end_date"] + " " + event["event_end_time"]
             # print(end_datetime)
-            local_end_datetime = convertUtcToLocal(end_datetime)
+            local_end_datetime = convertUtcToLocal(end_datetime, user_timezone)
             event["event_end_date"] = local_end_datetime["date"]
             event["event_end_time"] = local_end_datetime["time"]
     return items
@@ -634,17 +634,18 @@ class AddEvent(Resource):
             eventEndDate = event["eventEndDate"]
             # eventPhoto = event["eventPhoto"]
             preEventQuestionnaire = event["preEventQuestionnaire"]
+            user_timezone = event["user_timezone"]
 
             eventStartDateTime = eventStartDate + " " + eventStartTime
             # print(" eventStartDateTime ",eventStartDateTime)
-            eventStartDateTimeUTC = convertLocalToUTC(eventStartDateTime)
+            eventStartDateTimeUTC = convertLocalToUTC(eventStartDateTime, user_timezone)
             eventStartDate = eventStartDateTimeUTC["date"]
             eventStartTime = eventStartDateTimeUTC["time"]
             # print("eventStartDate ",eventStartDate, " eventStartTime ",eventStartTime)
 
             eventEndDateTime = eventEndDate + " " + eventEndTime
             # print(" eventEndDateTime ",eventEndDateTime)
-            eventEndDateTimeUTC = convertLocalToUTC(eventEndDateTime)
+            eventEndDateTimeUTC = convertLocalToUTC(eventEndDateTime, user_timezone)
             eventEndDate = eventEndDateTimeUTC["date"]
             eventEndTime = eventEndDateTimeUTC["time"]
             # print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
@@ -742,20 +743,22 @@ class UpdateEvent(Resource):
             eventEndDate = event["eventEndDate"]
             eventRegCode = event["eventRegistrationCode"]
             preEventQuestionnaire = event["preEventQuestionnaire"]
+            print(" && ",event_capacity)
+            user_timezone = event["user_timezone"]
 
             eventStartDateTime = eventStartDate + " " +eventStartTime
-            # print(" eventStartDateTime ",eventStartDateTime)
-            eventStartDateTimeUTC = convertLocalToUTC(eventStartDateTime)
+            print(" eventStartDateTime ",eventStartDateTime)
+            eventStartDateTimeUTC = convertLocalToUTC(eventStartDateTime, user_timezone)
             eventStartDate = eventStartDateTimeUTC["date"]
             eventStartTime = eventStartDateTimeUTC["time"]
             # print("eventStartDate ",eventStartDate, " eventStartTime ",eventStartTime)
 
             eventEndDateTime = eventEndDate + " " +eventEndTime
             # print(" eventEndDateTime ",eventEndDateTime)
-            eventEndDateTimeUTC = convertLocalToUTC(eventEndDateTime)
+            eventEndDateTimeUTC = convertLocalToUTC(eventEndDateTime, user_timezone)
             eventEndDate = eventEndDateTimeUTC["date"]
             eventEndTime = eventEndDateTimeUTC["time"]
-            # print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
+            print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
 
             images = []
             i = -1
@@ -1278,7 +1281,8 @@ class GetEvents(Resource):
         # print(item)
         
         # converting event time from UTC to local timezone
-        items = eventListIterator(items)
+        user_timezone = request.args.get('timeZone')
+        items = eventListIterator(items, user_timezone)
         return items
 
 
@@ -1420,9 +1424,15 @@ class CurrentEvents(Resource):
                 """
             )
             conn = connect()
-            events = execute(query, "get", conn)["result"]
+            # events = execute(query, "get", conn)["result"]
+            events = execute(query, "get", conn)
+
+            # converting event time from UTC to local timezone
+            user_timezone = request.args.get('timeZone')
+            events = eventListIterator(events, user_timezone)
+
             response["message"] = "successful"
-            response["events"] = events
+            response["events"] = events["result"]
         except Exception as e:
             raise InternalServerError("An unknown error occured.") from e
         finally:
@@ -1506,7 +1516,8 @@ class EventsByZipCodes(Resource):
         print(items)
 
         # converting event time from UTC to local timezone
-        items = eventListIterator(items)
+        user_timezone = request.args.get('timeZone')
+        items = eventListIterator(items, user_timezone)
 
         response['result'] = items['result']
         return response
@@ -1528,7 +1539,8 @@ class EventsByCity(Resource):
         print(items)
 
         # converting event time from UTC to local timezone
-        items = eventListIterator(items)
+        user_timezone = request.args.get('timeZone')
+        items = eventListIterator(items, user_timezone)
 
         response['result'] = items['result']
         return response
