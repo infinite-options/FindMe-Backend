@@ -1262,6 +1262,7 @@ class EventAttendees(Resource):
 class GetEvents(Resource):
     def get(self):
         conn = connect()
+        user_timezone = request.args.get('timeZone')
         filters = ['event_start_date', 'event_organizer_uid',
                    'event_location', 'event_zip', 'event_type']
         where = {}
@@ -1269,7 +1270,10 @@ class GetEvents(Resource):
             filterValue = request.args.get(filter)
 
             if filterValue is not None:
-                where[filter] = filterValue
+                if filter == 'event_start_date':
+                    where[filter] = convertLocalToUTC(filterValue, user_timezone)["date"]
+                else:
+                    where[filter] = filterValue
 
         if where == {}:
             query = ("""SELECT * FROM events;
@@ -1286,7 +1290,6 @@ class GetEvents(Resource):
         # print(item)
         
         # converting event time from UTC to local timezone
-        user_timezone = request.args.get('timeZone')
         items = eventListIterator(items, user_timezone)
         return items
 
