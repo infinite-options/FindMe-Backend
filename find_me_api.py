@@ -1170,9 +1170,11 @@ class NetworkingGraph(Resource):
             user_id = args["userId"]
             query = (
                 """
-                SELECT user_uid, first_name, last_name, role
+                SELECT user_uid, first_name, last_name, role, images
                 FROM find_me.users u INNER JOIN find_me.event_user eu 
                     ON u.user_uid = eu.eu_user_id
+                    INNER JOIN find_me.profile_user pu 
+                    ON u.user_uid = pu.profile_user_id
                 WHERE eu.eu_event_id = \'"""
                 + event_id
                 + """\';
@@ -1555,8 +1557,8 @@ class EventRegistrant(Resource):
             registrant_id = args["registrantId"]
             query = (
                 """
-                SELECT user_uid, first_name, last_name, role, email, 
-                    phone_number, images, catch_phrase, eu_qas
+                SELECT user_uid, first_name, last_name, role, email, title,
+                    phone_number, images, catch_phrase, eu_qas, company
                 FROM find_me.users u INNER JOIN find_me.event_user eu 
                     ON u.user_uid = eu.eu_user_id
                     INNER JOIN find_me.profile_user pu 
