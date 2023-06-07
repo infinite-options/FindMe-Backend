@@ -393,10 +393,12 @@ def updateImagesEvent(imageFiles, id):
     return images
 
 def convertLocalToUTC(dateTime, user_timezone):
+    # print(user_timezone)
     local = pytz.timezone(user_timezone)
-    naive = datetime.strptime(dateTime, "%m/%d/%Y %I:%M:%S %p")
+    naive = datetime.strptime(dateTime, "%m/%d/%Y %I:%M %p")
     local_dt = local.localize(naive, is_dst=None)
     utc_dt = local_dt.astimezone(pytz.utc)
+    # print(utc_dt)
     utc_dateTime = {}
     utc_dateTime["date"] = utc_dt.strftime("%m/%d/%Y")
     utc_dateTime["time"] = utc_dt.strftime("%I:%M %p")
@@ -634,7 +636,9 @@ class AddEvent(Resource):
             eventEndDate = event["eventEndDate"]
             # eventPhoto = event["eventPhoto"]
             preEventQuestionnaire = event["preEventQuestionnaire"]
+            # print(preEventQuestionnaire)
             user_timezone = event["user_timezone"]
+            # print(user_timezone)
 
             eventStartDateTime = eventStartDate + " " + eventStartTime
             # print(" eventStartDateTime ",eventStartDateTime)
@@ -727,7 +731,7 @@ class UpdateEvent(Resource):
             conn = connect()
             # event = request.get_json(force=True)
             event = request.form
-            print("**", event)
+            # print("**", event)
             event_uid = event["event_uid"]
             event_organizer_uid = event["event_organizer_uid"]
             eventType = event["eventType"]
@@ -743,11 +747,10 @@ class UpdateEvent(Resource):
             eventEndDate = event["eventEndDate"]
             eventRegCode = event["eventRegistrationCode"]
             preEventQuestionnaire = event["preEventQuestionnaire"]
-            print(" && ",event_capacity)
             user_timezone = event["user_timezone"]
 
             eventStartDateTime = eventStartDate + " " +eventStartTime
-            print(" eventStartDateTime ",eventStartDateTime)
+            # print(" eventStartDateTime ",eventStartDateTime)
             eventStartDateTimeUTC = convertLocalToUTC(eventStartDateTime, user_timezone)
             eventStartDate = eventStartDateTimeUTC["date"]
             eventStartTime = eventStartDateTimeUTC["time"]
@@ -758,7 +761,7 @@ class UpdateEvent(Resource):
             eventEndDateTimeUTC = convertLocalToUTC(eventEndDateTime, user_timezone)
             eventEndDate = eventEndDateTimeUTC["date"]
             eventEndTime = eventEndDateTimeUTC["time"]
-            print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
+            # print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
 
             images = []
             i = -1
