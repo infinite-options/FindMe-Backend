@@ -574,11 +574,25 @@ class SendEventDetails(Resource):
             eventCapacity = data["event_capacity"]
             eventLocation = data["event_location"]
             eventStartTime = data["event_start_time"]
-            eventEndTime = data["event_end_time"]
+
+            user_timezone = data['user_timezone']
+            eventStartDate = data["event_start_date"]
+            eventStartDateTime = eventStartDate + " " + eventStartTime
+            eventStartDateTimeUTC = convertLocalToUTC(
+                eventStartDateTime, user_timezone)
+
             eventStartDate = datetime.strptime(
-                data["event_start_date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+                eventStartDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+            eventStartTime = eventStartDateTimeUTC["time"]
+            eventEndDate = data["event_end_date"]
+            eventEndTime = data["event_end_time"]
+            eventEndDateTime = eventEndDate + " " + eventEndTime
+            # print(" eventEndDateTime ",eventEndDateTime)
+            eventEndDateTimeUTC = convertLocalToUTC(
+                eventEndDateTime, user_timezone)
             eventEndDate = datetime.strptime(
-                data["event_end_date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+                eventEndDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+            eventEndTime = eventEndDateTimeUTC["time"]
             eventRegCode = data["event_registration_code"]
             preEventQuestionnaire = json.loads(data["pre_event_questionnaire"])
             eventPhoto = json.loads(data["event_photo"])[0]
