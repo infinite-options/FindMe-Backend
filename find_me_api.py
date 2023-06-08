@@ -1347,7 +1347,7 @@ class GetEvents(Resource):
     def get(self):
         conn = connect()
         user_timezone = request.args.get('timeZone')
-        event_start_time = request.args.get('event_start_time', default = None)
+        event_start_time = request.args.get('event_start_time', default=None)
         filters = ['event_start_date', 'event_organizer_uid',
                    'event_location', 'event_zip', 'event_type']
         where = {}
@@ -1357,7 +1357,8 @@ class GetEvents(Resource):
             if filterValue is not None:
                 if filter == 'event_start_date' and event_start_time is not None:
                     filterValue = filterValue + " " + event_start_time
-                    where[filter] = convertLocalToUTC(filterValue, user_timezone)["date"]
+                    where[filter] = convertLocalToUTC(
+                        filterValue, user_timezone)["date"]
                 else:
                     where[filter] = filterValue
 
@@ -1374,6 +1375,19 @@ class GetEvents(Resource):
                         """)
             items = execute(query, "get", conn)
 
+        elif list(where.keys())[0] == 'event_organizer_uid':
+            query = ("""SELECT *
+                        FROM events e
+                        WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\'
+                        ORDER BY event_start_time ASC;
+                        """)
+            items = execute(query, "get", conn)
+            if len(items['result']) > 0:
+                for item in items['result']:
+                    query2 = ("""SELECT * FROM  event_user 
+                                WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
+                    items2 = execute(query2, "get", conn)
+                    item['num_attendees'] = len(items2['result'])
         else:
 
             query = ("""SELECT * 
@@ -1726,6 +1740,7 @@ class ProfileByUserUID(Resource):
         finally:
             disconnect(conn)
         return response, 200
+
 
 # -- DEFINE APIS -------------------------------------------------------------------------------
 # Define API routes
