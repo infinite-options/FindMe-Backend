@@ -926,7 +926,7 @@ class EventUser(Resource):
             query1 = ["CALL find_me.get_event_user_id;"]
             NewIDresponse = execute(query1[0], "get", conn)
             newEventUserID = NewIDresponse["result"][0]["new_id"]
-            print('before query', newEventUserID)
+            # print('before query', newEventUserID)
 
             query2 = ("""INSERT INTO find_me.event_user 
                             SET
@@ -935,11 +935,16 @@ class EventUser(Resource):
                         eu_event_id = \'""" + eu_event_id + """\',
                         eu_qas = \'""" + (str(eu_qas).replace("'", "''")) + """\';
                         """)
-            print(query2)
+            # print(query2)
             items = execute(query2, "post", conn)
-            print(items)
+            # print(items)
+            query3 = ("""SELECT * FROM events e
+                    WHERE event_uid = \'""" + eu_event_id + """\';
+                        """)
+            # print(query2)
+            items2 = execute(query3, "get", conn)
             response["message"] = "successful"
-            response["result"] = newEventUserID
+            response["result"] = items2['result']
             return response
         except:
             raise BadRequest("Request failed, please try again later.")
