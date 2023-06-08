@@ -127,7 +127,9 @@ EMAIL_PASSWORD = os.getenv('SUPPORT_PASSWORD')
 # Setting for mydomain.com
 app.config["MAIL_SERVER"] = "smtp.mydomain.com"
 app.config["MAIL_PORT"] = 465
-
+# Twilio settings
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
 
 app.config["MAIL_USE_TLS"] = False
 app.config["MAIL_USE_SSL"] = True
@@ -275,6 +277,24 @@ app.sendEmail = sendEmail
 # Function to upload image to s3
 
 
+def Send_Twilio_SMS2(message, phone_number):
+    items = {}
+    numbers = phone_number
+    message = message
+    numbers = list(set(numbers.split(',')))
+    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    for destination in numbers:
+        message = client.messages.create(
+            body=message,
+            from_='+19254815757',
+            to="+1" + destination
+        )
+
+    items['code'] = 200
+    items['Message'] = 'SMS sent successfully to all recipients'
+    return items
+
+
 def allowed_file(filename):
     # print("In allowed_file: ", filename)
     # Checks if the file is allowed to upload
@@ -392,6 +412,7 @@ def updateImagesEvent(imageFiles, id):
         images.append(image)
     return images
 
+
 def convertLocalToUTC(dateTime, user_timezone):
     # print(user_timezone)
     local = pytz.timezone(user_timezone)
@@ -405,6 +426,7 @@ def convertLocalToUTC(dateTime, user_timezone):
     print(utc_dateTime)
     return utc_dateTime
 
+
 def convertUtcToLocal(dateTime, user_timezone):
     from_zone = tz.gettz('UTC')
     to_zone = tz.gettz(user_timezone)
@@ -417,17 +439,21 @@ def convertUtcToLocal(dateTime, user_timezone):
     # print(" local_dateTime ",local_dateTime)
     return local_dateTime
 
+
 def eventListIterator(items, user_timezone):
     events = items["result"]
     for event in events:
         if event["event_start_date"] and event["event_start_time"]:
-            start_datetime = event["event_start_date"] + " " + event["event_start_time"]
+            start_datetime = event["event_start_date"] + \
+                " " + event["event_start_time"]
             # print(start_datetime)
-            local_start_datetime = convertUtcToLocal(start_datetime, user_timezone)
+            local_start_datetime = convertUtcToLocal(
+                start_datetime, user_timezone)
             event["event_start_date"] = local_start_datetime["date"]
             event["event_start_time"] = local_start_datetime["time"]
         if event["event_end_date"] and event["event_end_time"]:
-            end_datetime = event["event_end_date"] + " " + event["event_end_time"]
+            end_datetime = event["event_end_date"] + \
+                " " + event["event_end_time"]
             # print(end_datetime)
             local_end_datetime = convertUtcToLocal(end_datetime, user_timezone)
             event["event_end_date"] = local_end_datetime["date"]
@@ -611,6 +637,54 @@ class SendEventDetails(Resource):
             disconnect(conn)
 
 
+class SendTextAttendee(Resource):
+
+    def post(self):
+        print("In Send Text get")
+        try:
+            conn = connect()
+            response = {}
+            response['message'] = []
+            data = request.get_json(force=True)
+            recipient = data['recipient']
+            subject = data['subject']
+            message = data['message']
+            eventTitle = data["eventTitle"]
+            eventStartTime = data["eventStartTime"]
+            eventEndTime = data["eventEndTime"]
+            eventStartDate = datetime.strptime(
+                data["eventStartDate"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+
+            eventRegistrationCode = data["eventRegistrationCode"]
+            eventCheckinCode = (data["eventCheckinCode"])
+
+            for e in range(len(recipient)):
+                text_msg = (subject + "\n" +
+                            message + "\n" + 'Event: ' + eventTitle + "\n" + 'On ' + eventStartDate + ' from ' + eventStartTime + ' to ' + eventEndTime + "\n" + 'Registration Code: ' + eventRegistrationCode + "\n" + 'Checkin Code: ' + eventCheckinCode)
+                print(text_msg)
+                try:
+                    Send_Twilio_SMS2(
+                        text_msg, recipient[e])
+
+                    response['message'] = 'Text message to ' + \
+                        recipient[e] + ' sent successfully'
+                    print('here', response)
+
+                except:
+                    response['message'] = 'Text message to ' + \
+                        recipient[e] + ' failed'
+                    continue
+
+                print(response)
+
+            return response
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
 class AddEvent(Resource):
     def post(self):
         print("In AddEvent")
@@ -642,14 +716,16 @@ class AddEvent(Resource):
 
             eventStartDateTime = eventStartDate + " " + eventStartTime
             # print(" eventStartDateTime ",eventStartDateTime)
-            eventStartDateTimeUTC = convertLocalToUTC(eventStartDateTime, user_timezone)
+            eventStartDateTimeUTC = convertLocalToUTC(
+                eventStartDateTime, user_timezone)
             eventStartDate = eventStartDateTimeUTC["date"]
             eventStartTime = eventStartDateTimeUTC["time"]
             # print("eventStartDate ",eventStartDate, " eventStartTime ",eventStartTime)
 
             eventEndDateTime = eventEndDate + " " + eventEndTime
             # print(" eventEndDateTime ",eventEndDateTime)
-            eventEndDateTimeUTC = convertLocalToUTC(eventEndDateTime, user_timezone)
+            eventEndDateTimeUTC = convertLocalToUTC(
+                eventEndDateTime, user_timezone)
             eventEndDate = eventEndDateTimeUTC["date"]
             eventEndTime = eventEndDateTimeUTC["time"]
             # print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
@@ -749,16 +825,18 @@ class UpdateEvent(Resource):
             preEventQuestionnaire = event["preEventQuestionnaire"]
             user_timezone = event["user_timezone"]
 
-            eventStartDateTime = eventStartDate + " " +eventStartTime
+            eventStartDateTime = eventStartDate + " " + eventStartTime
             # print(" eventStartDateTime ",eventStartDateTime)
-            eventStartDateTimeUTC = convertLocalToUTC(eventStartDateTime, user_timezone)
+            eventStartDateTimeUTC = convertLocalToUTC(
+                eventStartDateTime, user_timezone)
             eventStartDate = eventStartDateTimeUTC["date"]
             eventStartTime = eventStartDateTimeUTC["time"]
             # print("eventStartDate ",eventStartDate, " eventStartTime ",eventStartTime)
 
-            eventEndDateTime = eventEndDate + " " +eventEndTime
+            eventEndDateTime = eventEndDate + " " + eventEndTime
             # print(" eventEndDateTime ",eventEndDateTime)
-            eventEndDateTimeUTC = convertLocalToUTC(eventEndDateTime, user_timezone)
+            eventEndDateTimeUTC = convertLocalToUTC(
+                eventEndDateTime, user_timezone)
             eventEndDate = eventEndDateTimeUTC["date"]
             eventEndTime = eventEndDateTimeUTC["time"]
             # print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
@@ -1272,7 +1350,13 @@ class GetEvents(Resource):
                 where[filter] = filterValue
 
         if where == {}:
-            query = ("""SELECT * FROM events;
+            query = ("""SELECT * FROM find_me.events WHERE event_start_date >= DATE_FORMAT(CURDATE(),"%m/%d/%Y");
+                        """)
+            items = execute(query, "get", conn)
+        elif list(where.keys())[0] == 'event_start_date':
+            query = ("""SELECT * 
+                        FROM events 
+                        WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\';
                         """)
             items = execute(query, "get", conn)
 
@@ -1280,11 +1364,12 @@ class GetEvents(Resource):
 
             query = ("""SELECT * 
                         FROM events 
-                        WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\';
+                        WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\'
+                        AND event_start_date >= DATE_FORMAT(CURDATE(),"%m/%d/%Y");
                         """)
             items = execute(query, "get", conn)
         # print(item)
-        
+
         # converting event time from UTC to local timezone
         user_timezone = request.args.get('timeZone')
         items = eventListIterator(items, user_timezone)
@@ -1300,10 +1385,12 @@ class GetOrganizers(Resource):
         response["code"]: 280
         response['result'] = []
 
-        query = ("""SELECT u.* 
+        query = ("""SELECT u.*, pu.*
                     FROM events e 
                     LEFT JOIN users u 
-                    ON u.user_uid = e.event_organizer_uid;
+                    ON u.user_uid = e.event_organizer_uid
+                    LEFT JOIN profile_user pu
+                    ON u.user_uid = pu.profile_user_id;
                     """)
         items = execute(query, "get", conn)
         # print(items)
@@ -1621,6 +1708,7 @@ api.add_resource(CheckUserProfile, "/api/v2/CheckUserProfile/<string:user_id>")
 
 
 api.add_resource(SendEmailAttendee, "/api/v2/SendEmailAttendee")
+api.add_resource(SendTextAttendee, "/api/v2/SendTextAttendee")
 api.add_resource(SendEventDetails, "/api/v2/SendEventDetails")
 
 
