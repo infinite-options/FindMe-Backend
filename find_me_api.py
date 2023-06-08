@@ -1367,17 +1367,15 @@ class GetEvents(Resource):
                         ORDER BY event_start_date,event_start_time  ASC;
                         """)
             items = execute(query, "get", conn)
+            if len(items['result']) > 0:
+                for item in items['result']:
+                    query2 = ("""SELECT * FROM  event_user 
+                                WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
+                    items2 = execute(query2, "get", conn)
+                    item['num_attendees'] = len(items2['result'])
         elif list(where.keys())[0] == 'event_start_date':
             query = ("""SELECT * 
                         FROM events 
-                        WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\'
-                        ORDER BY event_start_time ASC;
-                        """)
-            items = execute(query, "get", conn)
-
-        elif list(where.keys())[0] == 'event_organizer_uid':
-            query = ("""SELECT *
-                        FROM events e
                         WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\'
                         ORDER BY event_start_time ASC;
                         """)
@@ -1388,6 +1386,7 @@ class GetEvents(Resource):
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
+
         else:
 
             query = ("""SELECT * 
@@ -1397,6 +1396,12 @@ class GetEvents(Resource):
                         ORDER BY event_start_date,event_start_time  ASC;
                         """)
             items = execute(query, "get", conn)
+            if len(items['result']) > 0:
+                for item in items['result']:
+                    query2 = ("""SELECT * FROM  event_user 
+                                WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
+                    items2 = execute(query2, "get", conn)
+                    item['num_attendees'] = len(items2['result'])
         # print(item)
 
         # converting event time from UTC to local timezone
