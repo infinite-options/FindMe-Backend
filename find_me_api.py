@@ -991,7 +991,8 @@ class GetEventUser(Resource):
         query = ("""SELECT * FROM event_user eu
                     LEFT JOIN events e
                     ON e.event_uid = eu.eu_event_id
-                    WHERE eu.eu_user_id = \'""" + eu_user_id + """\';
+                    WHERE eu.eu_user_id = \'""" + eu_user_id + """\'
+                    ORDER BY e.event_start_date,e.event_start_time  ASC;
                     """)
         items = execute(query, "get", conn)
         return items
@@ -1355,13 +1356,15 @@ class GetEvents(Resource):
                 where[filter] = filterValue
 
         if where == {}:
-            query = ("""SELECT * FROM find_me.events WHERE event_start_date >= DATE_FORMAT(CURDATE(),"%m/%d/%Y");
+            query = ("""SELECT * FROM find_me.events WHERE event_start_date >= DATE_FORMAT(CURDATE(),"%m/%d/%Y")
+                        ORDER BY event_start_date,event_start_time  ASC;
                         """)
             items = execute(query, "get", conn)
         elif list(where.keys())[0] == 'event_start_date':
             query = ("""SELECT * 
                         FROM events 
-                        WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\';
+                        WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\'
+                        ORDER BY event_start_time ASC;
                         """)
             items = execute(query, "get", conn)
 
@@ -1370,7 +1373,8 @@ class GetEvents(Resource):
             query = ("""SELECT * 
                         FROM events 
                         WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\'
-                        AND event_start_date >= DATE_FORMAT(CURDATE(),"%m/%d/%Y");
+                        AND event_start_date >= DATE_FORMAT(CURDATE(),"%m/%d/%Y")
+                        ORDER BY event_start_date,event_start_time  ASC;
                         """)
             items = execute(query, "get", conn)
         # print(item)
