@@ -1335,12 +1335,23 @@ class EventAttendees(Resource):
         try:
             args = request.args
             event_id = args["eventId"]
+            attend_flag = args.get("attendFlag")
+            attend_clause = ""
+            if attend_flag is not None:
+                attend_clause = (""" eu.eu_attend = \'"""
+                + attend_flag
+                + """\' AND""")
             query = (
                 """
-                SELECT user_uid, first_name, last_name, role, email, phone_number
+                SELECT user_uid, first_name, last_name, role, email, 
+                    phone_number, images
                 FROM find_me.users u INNER JOIN find_me.event_user eu 
                     ON u.user_uid = eu.eu_user_id
-                WHERE eu.eu_event_id = \'"""
+                    INNER JOIN find_me.profile_user pu 
+                    ON u.user_uid = pu.profile_user_id
+                WHERE""" +  
+                attend_clause
+                + """ eu.eu_event_id = \'"""
                 + event_id
                 + """\';
                 """
@@ -1761,6 +1772,37 @@ class ProfileByUserUID(Resource):
         return response, 200
 
 
+class EventAttend(Resource):
+    def put(self):
+        response = {}
+        try:
+            args = request.args
+            user_uid = args["userId"]
+            event_uid = args["eventId"]
+            attend_flag = args["attendFlag"]
+            query = (
+                """
+                UPDATE find_me.event_user 
+                SET eu_attend = \'"""
+                + attend_flag
+                + """\'
+                WHERE eu_event_id = \'"""
+                + event_uid
+                + """\' AND eu_user_id = \'"""
+                + user_uid
+                + """\';
+                """
+            )
+            conn = connect()
+            execute(query, "post", conn)
+            response["message"] = "successful"
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+
+
 # -- DEFINE APIS -------------------------------------------------------------------------------
 # Define API routes
 # event creation and editing endpoints
@@ -1782,6 +1824,7 @@ api.add_resource(CurrentEvents, "/api/v2/currentEvents")
 api.add_resource(EventStatus, "/api/v2/eventStatus")
 api.add_resource(EventRegistrant, "/api/v2/eventRegistrant")
 api.add_resource(ProfileByUserUID, "/api/v2/profileByUserUID")
+api.add_resource(EventAttend, "/api/v2/eventAttend")
 
 # add event and user relationship + questions
 
