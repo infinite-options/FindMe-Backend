@@ -1346,6 +1346,8 @@ class EventAttendees(Resource):
 class GetEvents(Resource):
     def get(self):
         conn = connect()
+        user_timezone = request.args.get('timeZone')
+        event_start_time = request.args.get('event_start_time', default = None)
         filters = ['event_start_date', 'event_organizer_uid',
                    'event_location', 'event_zip', 'event_type']
         where = {}
@@ -1353,7 +1355,11 @@ class GetEvents(Resource):
             filterValue = request.args.get(filter)
 
             if filterValue is not None:
-                where[filter] = filterValue
+                if filter == 'event_start_date' and event_start_time is not None:
+                    filterValue = filterValue + " " + event_start_time
+                    where[filter] = convertLocalToUTC(filterValue, user_timezone)["date"]
+                else:
+                    where[filter] = filterValue
 
         if where == {}:
             query = ("""SELECT * FROM find_me.events WHERE event_start_date >= DATE_FORMAT(CURDATE(),"%m/%d/%Y")
@@ -1380,7 +1386,6 @@ class GetEvents(Resource):
         # print(item)
 
         # converting event time from UTC to local timezone
-        user_timezone = request.args.get('timeZone')
         items = eventListIterator(items, user_timezone)
         return items
 
@@ -1547,11 +1552,23 @@ class EventStatus(Resource):
         try:
             args = request.args
             event_uid = args["eventId"]
+            user_id = args["userId"]
             query = (
                 """
-                SELECT event_status
-                FROM find_me.events 
-                WHERE event_uid = \'"""
+                SELECT IF(
+                        EXISTS(
+                            SELECT 1
+                            FROM find_me.event_user eu
+                            WHERE eu.eu_user_id = \'"""
+                + user_id
+                + """\'     AND eu.eu_event_id = e.event_uid
+                        ),
+                        TRUE,
+                        FALSE
+                    ) AS has_registered,
+                    event_status
+                FROM find_me.events e
+                WHERE e.event_uid = \'"""
                 + event_uid
                 + """\';
                 """
@@ -1560,6 +1577,7 @@ class EventStatus(Resource):
             query_result = execute(query, "get", conn, True)["result"]
             response["message"] = "successful"
             response["eventStarted"] = query_result[0]["event_status"]
+            response["hasRegistered"] = query_result[0]["has_registered"]
         except Exception as e:
             raise InternalServerError("An unknown error occured.") from e
         finally:
@@ -1682,6 +1700,33 @@ class EventRegistrant(Resource):
         return response, 200
 
 
+class ProfileByUserUID(Resource):
+    def get(self):
+        response = {}
+        try:
+            args = request.args
+            user_id = args["userId"]
+            query = (
+                """
+                SELECT *
+                FROM find_me.users u INNER JOIN find_me.profile_user pu 
+                    ON u.user_uid = pu.profile_user_id
+                WHERE u.user_uid = \'"""
+                + user_id
+                + """\';
+                """
+            )
+            conn = connect()
+            profile = execute(query, "get", conn)["result"][0]
+
+            response["message"] = "successful"
+            response["profile"] = profile
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+
 # -- DEFINE APIS -------------------------------------------------------------------------------
 # Define API routes
 # event creation and editing endpoints
@@ -1702,6 +1747,7 @@ api.add_resource(VerifyCheckinCode, "/api/v2/verifyCheckinCode")
 api.add_resource(CurrentEvents, "/api/v2/currentEvents")
 api.add_resource(EventStatus, "/api/v2/eventStatus")
 api.add_resource(EventRegistrant, "/api/v2/eventRegistrant")
+api.add_resource(ProfileByUserUID, "/api/v2/profileByUserUID")
 
 # add event and user relationship + questions
 
