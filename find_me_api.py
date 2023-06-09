@@ -1278,7 +1278,8 @@ class NetworkingGraph(Resource):
                     ON u.user_uid = eu.eu_user_id
                     INNER JOIN find_me.profile_user pu 
                     ON u.user_uid = pu.profile_user_id
-                WHERE eu.eu_event_id = \'"""
+                WHERE eu.eu_attend = 1 
+                AND eu.eu_event_id = \'"""
                 + event_id
                 + """\';
                 """
@@ -1374,7 +1375,6 @@ class GetEvents(Resource):
     def get(self):
         conn = connect()
         user_timezone = request.args.get('timeZone')
-        event_start_time = request.args.get('event_start_time', default=None)
         filters = ['event_start_date', 'event_organizer_uid',
                    'event_location', 'event_zip', 'event_type']
         where = {}
@@ -1382,10 +1382,10 @@ class GetEvents(Resource):
             filterValue = request.args.get(filter)
 
             if filterValue is not None:
-                if filter == 'event_start_date' and event_start_time is not None:
-                    filterValue = filterValue + " " + event_start_time
-                    where[filter] = convertLocalToUTC(
-                        filterValue, user_timezone)["date"]
+                if filter == 'event_start_date':
+                    filterValue = filterValue + " 12:00 AM"
+                    utcDateTime = convertLocalToUTC(filterValue, user_timezone)
+                    where[filter] = utcDateTime["date"] + " " + utcDateTime["time"]
                 else:
                     where[filter] = filterValue
 
@@ -1401,11 +1401,27 @@ class GetEvents(Resource):
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
         elif list(where.keys())[0] == 'event_start_date':
-            query = ("""SELECT * 
-                        FROM events 
-                        WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\'
-                        ORDER BY event_start_time ASC;
-                        """)
+            query = (
+                """
+                WITH event_start AS (
+                    SELECT event_uid,
+                        STR_TO_DATE(
+                            concat(event_start_date, ' ', event_start_time),
+                            '%m/%d/%Y %h:%i %p'
+                        ) AS start_datetime
+                    FROM find_me.events e
+                )
+                SELECT e.*
+                FROM find_me.events e
+                    INNER JOIN event_start es ON e.event_uid = es.event_uid
+                WHERE start_datetime BETWEEN STR_TO_DATE(\'"""
+                + list(where.values())[0]
+                + """\', '%m/%d/%Y %h:%i %p') AND STR_TO_DATE(\'"""
+                + list(where.values())[0]
+                + """\', '%m/%d/%Y %h:%i %p') + INTERVAL 1 DAY 
+                ORDER BY start_datetime;
+                """
+            )
             items = execute(query, "get", conn)
             if len(items['result']) > 0:
                 for item in items['result']:
