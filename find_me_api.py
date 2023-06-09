@@ -50,6 +50,12 @@ from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
 from pyzipcode import ZipCodeDatabase
+
+import pandas as pd
+import numpy as np
+from geopy.geocoders import Nominatim
+from geopy.distance import geodesic
+
 #  NEED TO SOLVE THIS
 # from NotificationHub import Notification
 # from NotificationHub import NotificationHub
@@ -1341,8 +1347,8 @@ class EventAttendees(Resource):
             attend_clause = ""
             if attend_flag is not None:
                 attend_clause = (""" eu.eu_attend = \'"""
-                + attend_flag
-                + """\' AND""")
+                                 + attend_flag
+                                 + """\' AND""")
             query = (
                 """
                 SELECT user_uid, first_name, last_name, role, email, 
@@ -1351,7 +1357,7 @@ class EventAttendees(Resource):
                     ON u.user_uid = eu.eu_user_id
                     INNER JOIN find_me.profile_user pu 
                     ON u.user_uid = pu.profile_user_id
-                WHERE""" +  
+                WHERE""" +
                 attend_clause
                 + """ eu.eu_event_id = \'"""
                 + event_id
@@ -1711,6 +1717,57 @@ class EventsByCity(Resource):
         return response
 
 
+class EventsByAddress(Resource):
+    def post(self):
+        print('in EventsByAddress')
+        response = {}
+        response["message"] = "Successfully executed SQL query."
+        response["code"]: 280
+        response['result'] = []
+        conn = connect()
+        location = request.get_json()
+        miles = location['miles']
+        address = location['address']
+
+        query = """SELECT * from events; """
+        items = execute(query, "get", conn)
+
+        # converting event time from UTC to local timezone
+        user_timezone = request.args.get('timeZone')
+        items = eventListIterator(items, user_timezone)
+        if len(items['result']) > 0:
+            for item in items['result']:
+                addresses = [[item['event_location'], address]]
+                print(addresses)
+                df = pd.DataFrame(addresses, columns=['Address1', 'Address2'])
+                print(df)
+                geolocator = Nominatim(user_agent=app.config['MAIL_USERNAME'])
+
+                df["Cor1"] = df["Address1"].apply(geolocator.geocode)
+                df['Cor2'] = df["Address2"].apply(geolocator.geocode)
+                df["lat1"] = df['Cor1'].apply(
+                    lambda x: x.latitude if x != None else None)
+                df["lon1"] = df['Cor1'].apply(
+                    lambda x: x.longitude if x != None else None)
+                df["lat2"] = df['Cor2'].apply(
+                    lambda x: x.latitude if x != None else None)
+                df["lon2"] = df['Cor2'].apply(
+                    lambda x: x.longitude if x != None else None)
+                print(df)
+                for index, row in df.iterrows():
+                    address1 = (row["lat1"], row["lon1"])
+                    address2 = (row["lat2"], row["lon2"])
+                    try:
+                        dist = (geodesic(address1, address2).miles)
+                        print(dist, type(dist))
+                        if dist <= int(miles):
+                            response['result'].append(item)
+                    except:
+                        continue
+
+        return response
+
+
 class EventRegistrant(Resource):
     def get(self):
         response = {}
@@ -1813,6 +1870,7 @@ api.add_resource(UpdateEvent, "/api/v2/UpdateEvent")
 api.add_resource(GetEvents, "/api/v2/GetEvents")
 api.add_resource(EventsByZipCodes, '/api/v2/EventsByZipCodes')
 api.add_resource(EventsByCity, '/api/v2/EventsByCity')
+api.add_resource(EventsByAddress, '/api/v2/EventsByAddress')
 # event pre-registration endpoints
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
