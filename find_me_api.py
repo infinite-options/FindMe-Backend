@@ -704,6 +704,7 @@ class AddEvent(Resource):
             eventCapacity = event["eventCapacity"]
             eventLocation = event["eventLocation"]
             eventZip = event["eventZip"]
+            eventLocationName = event["eventLocationName"]
             eventStartTime = event["eventStartTime"]
             eventEndTime = event["eventEndTime"]
             eventStartDate = event["eventStartDate"]
@@ -761,13 +762,14 @@ class AddEvent(Resource):
             print('after while', images)
 
             query = (
-                """INSERT INTO events
+                """INSERT INTO find_me.events
                 SET event_uid = \'""" + new_event_id + """\',
                     event_title = \'""" + str(eventTitle).replace("'", "''") + """\',
                     event_description = \'""" + str(eventDescription).replace("'", "''") + """\',
                     event_organizer_uid = \'""" + event_organizer_uid + """\',
                     event_type = \'""" + eventType + """\',
                     event_location = \'""" + eventLocation + """\',
+                    event_location_name = \'""" + str(eventLocationName).replace("'", "''") + """\',
                     event_zip = \'""" + eventZip + """\',
                     event_start_date = \'""" + eventStartDate + """\',
                     event_end_date = \'""" + eventEndDate + """\',
