@@ -589,11 +589,11 @@ class SendEventDetails(Resource):
 
             eventStartDate = datetime.strptime(
                 eventStartDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+
             eventStartTime = eventStartDateTimeUTC["time"]
             eventEndDate = data["event_end_date"]
             eventEndTime = data["event_end_time"]
             eventEndDateTime = eventEndDate + " " + eventEndTime
-            # print(" eventEndDateTime ",eventEndDateTime)
             eventEndDateTimeUTC = convertLocalToUTC(
                 eventEndDateTime, user_timezone)
             eventEndDate = datetime.strptime(
@@ -601,20 +601,21 @@ class SendEventDetails(Resource):
             eventEndTime = eventEndDateTimeUTC["time"]
             eventRegCode = data["event_registration_code"]
             preEventQuestionnaire = json.loads(data["pre_event_questionnaire"])
-            eventPhoto = json.loads(data["event_photo"])[0]
+            eventPhoto = json.loads(data["event_photo"]) if len(json.loads(
+                data["event_photo"])) == 0 else json.loads(data["event_photo"])[0]
             eventCheckinCode = (data["event_checkin_code"])
-            # print(organizer)
             query = """ SELECT * FROM users 
                         WHERE user_uid = \'""" + organizer + """\'"""
+
             items = execute(query, 'get', conn)
-            # print(eventStartDate)
 
             recipient = items['result'][0]['email']
+
             msg = EmailMessage()
             msg['Subject'] = str(eventTitle) + ': New Event Created'
             msg['From'] = app.config["MAIL_USERNAME"]
             msg['To'] = [recipient]
-            # print(msg)
+
             items = ["<li>{}</li>".format(s['question'])
                      for s in preEventQuestionnaire]
             items = "".join(items)
@@ -1391,7 +1392,8 @@ class GetEvents(Resource):
                 if filter == 'event_start_date':
                     filterValue = filterValue + " 12:00 AM"
                     utcDateTime = convertLocalToUTC(filterValue, user_timezone)
-                    where[filter] = utcDateTime["date"] + " " + utcDateTime["time"]
+                    where[filter] = utcDateTime["date"] + \
+                        " " + utcDateTime["time"]
                 else:
                     where[filter] = filterValue
 
