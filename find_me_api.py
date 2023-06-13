@@ -301,6 +301,28 @@ def Send_Twilio_SMS2(message, phone_number):
     return items
 
 
+def convert24(str1):
+
+    # Checking if last two elements of time
+    # is AM and first two elements are 12
+    if str1[-3:] == " AM" and str1[:2] == "12":
+        return "00" + str1[2:-3]+":00"
+
+    # remove the AM
+    elif str1[-3:] == " AM":
+        return str1[:-3]+":00"
+
+    # Checking if last two elements of time
+    # is PM and first two elements are 12
+    elif str1[-3:] == " PM" and str1[:2] == "12":
+        return str1[:-3]+":00"
+
+    else:
+
+        # add 12 to hours and remove PM
+        return str(int(str1[:2]) + 12) + str1[2:5]+":00"
+
+
 def allowed_file(filename):
     # print("In allowed_file: ", filename)
     # Checks if the file is allowed to upload
@@ -1048,19 +1070,21 @@ class GetEventUser(Resource):
         query = ("""SELECT * FROM event_user eu
                     LEFT JOIN events e
                     ON e.event_uid = eu.eu_event_id
-                    WHERE eu.eu_user_id = \'""" + eu_user_id + """\';
+                    WHERE eu.eu_user_id = \'""" + eu_user_id + """\
+                    ORDER BY event_start_date,event_start_time  ASC;
                     """)
         items = execute(query, "get", conn)
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
-                startDatetime = datetime.strptime(item['event_end_date'] +
-                                                  ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
-                eventStartDatetime = datetime.strptime(
-                    startDatetime, "%Y-%m-%d %H:%M:%S")
-                if eventStartDatetime > datetime.now():
+                endTime = convert24(item['event_end_time'])
+                endDatetime = datetime.strptime(item['event_end_date'] +
+                                                ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventEndDatetime = datetime.strptime(
+                    (endDatetime), "%Y-%m-%d %H:%M:%S")
+                if eventEndDatetime > datetime.now():
                     response['result'].append(item)
-
+        response = eventListIterator(response, user_timezone)
         return response
 
 
@@ -1457,11 +1481,12 @@ class GetEvents(Resource):
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
-                    startDatetime = datetime.strptime(item['event_end_date'] +
-                                                      ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
-                    eventStartDatetime = datetime.strptime(
-                        startDatetime, "%Y-%m-%d %H:%M:%S")
-                    if eventStartDatetime > datetime.now():
+                    endTime = convert24(item['event_end_time'])
+                    endDatetime = datetime.strptime(item['event_end_date'] +
+                                                    ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                    eventEndDatetime = datetime.strptime(
+                        (endDatetime), "%Y-%m-%d %H:%M:%S")
+                    if eventEndDatetime > datetime.now():
                         response['result'].append(item)
         elif list(where.keys())[0] == 'event_start_date':
             query = (
@@ -1503,20 +1528,23 @@ class GetEvents(Resource):
                         """)
             items = execute(query, "get", conn)
             items = eventListIterator(items, user_timezone)
+            print(items['result'])
             if len(items['result']) > 0:
                 for item in items['result']:
                     query2 = ("""SELECT * FROM  event_user 
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
-                    startDatetime = datetime.strptime(item['event_end_date'] +
-                                                      ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
-                    eventStartDatetime = datetime.strptime(
-                        startDatetime, "%Y-%m-%d %H:%M:%S")
-                    if eventStartDatetime > datetime.now():
+                    endTime = convert24(item['event_end_time'])
+                    endDatetime = datetime.strptime(item['event_end_date'] +
+                                                    ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                    eventEndDatetime = datetime.strptime(
+                        (endDatetime), "%Y-%m-%d %H:%M:%S")
+                    if eventEndDatetime > datetime.now():
                         response['result'].append(item)
         # print(item)
 
+        # response = eventListIterator(response, user_timezone)
         return response
 
 
@@ -1769,11 +1797,12 @@ class EventsByZipCodes(Resource):
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
-                startDatetime = datetime.strptime(item['event_end_date'] +
-                                                  ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
-                eventStartDatetime = datetime.strptime(
-                    startDatetime, "%Y-%m-%d %H:%M:%S")
-                if eventStartDatetime > datetime.now():
+                endTime = convert24(item['event_end_time'])
+                endDatetime = datetime.strptime(item['event_end_date'] +
+                                                ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventEndDatetime = datetime.strptime(
+                    (endDatetime), "%Y-%m-%d %H:%M:%S")
+                if eventEndDatetime > datetime.now():
                     response['result'].append(item)
         return response
 
@@ -1798,11 +1827,12 @@ class EventsByCity(Resource):
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
-                startDatetime = datetime.strptime(item['event_end_date'] +
-                                                  ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
-                eventStartDatetime = datetime.strptime(
-                    startDatetime, "%Y-%m-%d %H:%M:%S")
-                if eventStartDatetime > datetime.now():
+                endTime = convert24(item['event_end_time'])
+                endDatetime = datetime.strptime(item['event_end_date'] +
+                                                ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventEndDatetime = datetime.strptime(
+                    (endDatetime), "%Y-%m-%d %H:%M:%S")
+                if eventEndDatetime > datetime.now():
                     response['result'].append(item)
         return response
 
@@ -1827,11 +1857,12 @@ class EventsByAddress(Resource):
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
-                startDatetime = datetime.strptime(item['event_end_date'] +
-                                                  ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
-                eventStartDatetime = datetime.strptime(
-                    startDatetime, "%Y-%m-%d %H:%M:%S")
-                if eventStartDatetime > datetime.now():
+                endTime = convert24(item['event_end_time'])
+                endDatetime = datetime.strptime(item['event_end_date'] +
+                                                ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventEndDatetime = datetime.strptime(
+                    (endDatetime), "%Y-%m-%d %H:%M:%S")
+                if eventEndDatetime > datetime.now():
                     response['result'].append(item)
                     addresses = [[item['event_location'], address]]
                     print(addresses)
