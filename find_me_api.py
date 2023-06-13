@@ -1518,7 +1518,6 @@ class GetEvents(Resource):
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
                     response['result'].append(item)
-
         else:
 
             query = ("""SELECT * 
@@ -1557,7 +1556,8 @@ class GetOrganizers(Resource):
         response["code"]: 280
         response['result'] = []
 
-        query = ("""SELECT u.*, pu.*
+        user_timezone = request.args.get('timeZone')
+        query = ("""SELECT u.*, pu.*, e.*
                     FROM events e 
                     LEFT JOIN users u 
                     ON u.user_uid = e.event_organizer_uid
@@ -1565,9 +1565,20 @@ class GetOrganizers(Resource):
                     ON u.user_uid = pu.profile_user_id;
                     """)
         items = execute(query, "get", conn)
+        items = eventListIterator(items, user_timezone)
+        print(items['result'])
+        if len(items['result']) > 0:
+            for item in items['result']:
+                endTime = convert24(item['event_end_time'])
+                endDatetime = datetime.strptime(item['event_end_date'] +
+                                                ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventEndDatetime = datetime.strptime(
+                    (endDatetime), "%Y-%m-%d %H:%M:%S")
+                if eventEndDatetime > datetime.now():
+                    response['result'].append(item)
         # print(items)
         seen = collections.OrderedDict()
-        users = items['result']
+        users = response['result']
         for obj in users:
             print(obj)
             print(seen)
@@ -1578,14 +1589,6 @@ class GetOrganizers(Resource):
         response['result'] = list(seen.values())
 
         print(list(seen.values()))
-        # for user in items['result']:
-        #     print(user)
-        #     quer_events = ("""SELECT *
-        #             FROM events e WHERE event_organizer_uid = \'""" + user['user_uid'] + """\' ;
-        #             """)
-        #     items_events = execute(quer_events, 'get', conn)
-        #     if len(items_events['result']) > 0:
-        #         response['result'] = response['result'].append(user)
 
         return response
 
