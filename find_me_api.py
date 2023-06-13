@@ -865,6 +865,7 @@ class UpdateEvent(Resource):
             eventDescription = event["eventDescription"]
             eventCapacity = event["eventCapacity"]
             eventLocation = event["eventLocation"]
+            eventLocationName = event["eventLocationName"]
             eventZip = event["eventZip"]
             eventStartTime = event["eventStartTime"]
             eventEndTime = event["eventEndTime"]
@@ -919,6 +920,7 @@ class UpdateEvent(Resource):
                     event_organizer_uid = \'""" + event_organizer_uid + """\',
                     event_type = \'""" + eventType + """\',
                     event_location = \'""" + eventLocation + """\',
+                    event_location_name = \'""" + str(eventLocationName).replace("'", "''") + """\',
                     event_zip = \'""" + eventZip + """\',
                     event_start_date = \'""" + eventStartDate + """\',
                     event_end_date = \'""" + eventEndDate + """\',
