@@ -491,12 +491,24 @@ class SendEmailAttendee(Resource):
             eventTitle = data["eventTitle"]
             eventDescription = data["eventDescription"]
             eventLocation = data["eventLocation"]
-            eventStartTime = data["eventStartTime"]
-            eventEndTime = data["eventEndTime"]
+            user_timezone = data['user_timezone']
+            eventStartDate = data["event_start_date"]
+            eventStartDateTime = eventStartDate + " " + eventStartTime
+            eventStartDateTimeUTC = convertLocalToUTC(
+                eventStartDateTime, user_timezone)
+
             eventStartDate = datetime.strptime(
-                data["eventStartDate"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+                eventStartDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+
+            eventStartTime = eventStartDateTimeUTC["time"]
+            eventEndDate = data["event_end_date"]
+            eventEndTime = data["event_end_time"]
+            eventEndDateTime = eventEndDate + " " + eventEndTime
+            eventEndDateTimeUTC = convertLocalToUTC(
+                eventEndDateTime, user_timezone)
             eventEndDate = datetime.strptime(
-                data["eventEndDate"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+                eventEndDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+            eventEndTime = eventEndDateTimeUTC["time"]
             eventRegistrationCode = data["eventRegistrationCode"]
             eventPhoto = json.loads(data["eventPhoto"])[0]
             eventCheckinCode = (data["eventCheckinCode"])
@@ -604,11 +616,12 @@ class SendEventDetails(Resource):
             eventPhoto = json.loads(data["event_photo"]) if len(json.loads(
                 data["event_photo"])) == 0 else json.loads(data["event_photo"])[0]
             eventCheckinCode = (data["event_checkin_code"])
+            print('here')
             query = """ SELECT * FROM users 
                         WHERE user_uid = \'""" + organizer + """\'"""
 
             items = execute(query, 'get', conn)
-
+            print(items)
             recipient = items['result'][0]['email']
 
             msg = EmailMessage()
@@ -619,14 +632,14 @@ class SendEventDetails(Resource):
             items = ["<li>{}</li>".format(s['question'])
                      for s in preEventQuestionnaire]
             items = "".join(items)
-            # print(items)
+            print(items)
             html = """\
             <!DOCTYPE html>
             <html>
                 <body style="background-color:#eee;padding:10px 20px;align:center">
                     <div style="padding:20px 0px">
                         <div>
-                            <img src= """ + str(eventPhoto) + """ style="display:block;margin-left:auto;margin-right:auto;width:50%;">
+                            <img src= """ + str(eventPhoto) + """ style="display:block;margin-left:auto;margin-right:auto;width:50%;height:50%;">
                             <div style="text-align:center;display:block;margin-left:auto;margin-right:auto;width:30%;">
                                 <h1>""" + str(eventTitle) + """</h1>
                                 <h3>""" + str(eventDescription) + """</h3>
@@ -636,7 +649,6 @@ class SendEventDetails(Resource):
                                 <p>Event Visibility:  """ + str(eventVisibility) + """</p>
                                 <p>Event Capacity:  """ + str(eventCapacity) + """</p>
                                 <p>Event Registration Code:  """ + str(eventRegCode) + """</p>
-                                <p>Event Check-in Code:  """ + str(eventCheckinCode) + """</p>
                                 <p>Pre-event Questionnare: {0}</p>
                              </div>
                         </div>
@@ -671,17 +683,31 @@ class SendTextAttendee(Resource):
             subject = data['subject']
             message = data['message']
             eventTitle = data["eventTitle"]
-            eventStartTime = data["eventStartTime"]
-            eventEndTime = data["eventEndTime"]
+            user_timezone = data['user_timezone']
+            eventStartDate = data["event_start_date"]
+            eventStartDateTime = eventStartDate + " " + eventStartTime
+            eventStartDateTimeUTC = convertLocalToUTC(
+                eventStartDateTime, user_timezone)
+
             eventStartDate = datetime.strptime(
-                data["eventStartDate"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+                eventStartDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+
+            eventStartTime = eventStartDateTimeUTC["time"]
+            eventEndDate = data["event_end_date"]
+            eventEndTime = data["event_end_time"]
+            eventEndDateTime = eventEndDate + " " + eventEndTime
+            eventEndDateTimeUTC = convertLocalToUTC(
+                eventEndDateTime, user_timezone)
+            eventEndDate = datetime.strptime(
+                eventEndDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
+            eventEndTime = eventEndDateTimeUTC["time"]
 
             eventRegistrationCode = data["eventRegistrationCode"]
             eventCheckinCode = (data["eventCheckinCode"])
 
             for e in range(len(recipient)):
                 text_msg = (subject + "\n" +
-                            message + "\n" + 'Event: ' + eventTitle + "\n" + 'On ' + eventStartDate + ' from ' + eventStartTime + ' to ' + eventEndTime + "\n" + 'Registration Code: ' + eventRegistrationCode + "\n" + 'Checkin Code: ' + eventCheckinCode)
+                            message + "\n" + 'Event: ' + eventTitle + "\n" + 'On ' + eventStartDate + ' from ' + eventStartTime + ' to ' + eventEndTime + "\n" + 'Registration Code: ' + eventRegistrationCode)
                 print(text_msg)
                 try:
                     Send_Twilio_SMS2(
@@ -888,8 +914,8 @@ class UpdateEvent(Resource):
 
             query = (
                 """UPDATE  events SET
-                    event_title = \'""" + str(eventTitle).replace("'", "''") + """\',
-                    event_description = \'""" + str(eventDescription).replace("'", "''") + """\',
+                    event_title = \'""" + str(eventTitle).replace("'", "''").replace("\\n", " ") + """\',
+                    event_description = \'""" + str(eventDescription).replace("'", "''").replace("\\n", " ") + """\',
                     event_organizer_uid = \'""" + event_organizer_uid + """\',
                     event_type = \'""" + eventType + """\',
                     event_location = \'""" + eventLocation + """\',
@@ -901,7 +927,7 @@ class UpdateEvent(Resource):
                     event_visibility = \'""" + eventVisibility + """\',                       
                     event_capacity = \'""" + eventCapacity + """\',         
                     event_photo  = \'""" + json.dumps(images) + """\',      
-                    pre_event_questionnaire  = \'""" + str(preEventQuestionnaire).replace("'", "''") + """\',
+                    pre_event_questionnaire  = \'""" + str(preEventQuestionnaire).replace("'", "''").replace("\\n", " ") + """\',
                     event_registration_code = \'""" + eventRegCode + """\'
                     WHERE  event_uid = \'""" + event_uid + """\';"""
             )
@@ -956,7 +982,7 @@ class EventUser(Resource):
                         event_user_uid = \'""" + newEventUserID + """\',
                         eu_user_id = \'""" + eu_user_id + """\',
                         eu_event_id = \'""" + eu_event_id + """\',
-                        eu_qas = \'""" + (str(eu_qas).replace("'", "''")) + """\';
+                        eu_qas = \'""" + (str(eu_qas).replace("'", "''").replace("\\n", " ")) + """\';
                         """)
             # print(query2)
             items = execute(query2, "post", conn)
@@ -986,7 +1012,7 @@ class EventUser(Resource):
 
             query = ("""UPDATE  event_user 
                         SET
-                        eu_qas = \'""" + (str(eu_qas).replace("'", "''")) + """\'
+                        eu_qas = \'""" + (str(eu_qas).replace("'", "''").replace("\\n", " ")) + """\'
                         WHERE event_user_uid = \'""" + event_user_uid + """\';
                         """)
             print(query)
@@ -1008,17 +1034,32 @@ class EventUser(Resource):
 
 
 class GetEventUser(Resource):
-    def get(self, eu_user_id):
+    def get(self):
         print('in event user get')
         conn = connect()
+        response = {}
+        response["message"] = "Successfully executed SQL query."
+        response["code"]: 280
+        response['result'] = []
+        user_timezone = request.args.get('timeZone')
+        eu_user_id = request.args.get('eu_user_id')
         query = ("""SELECT * FROM event_user eu
                     LEFT JOIN events e
                     ON e.event_uid = eu.eu_event_id
-                    WHERE eu.eu_user_id = \'""" + eu_user_id + """\'
-                    ORDER BY e.event_start_date,e.event_start_time  ASC;
+                    WHERE eu.eu_user_id = \'""" + eu_user_id + """\';
                     """)
         items = execute(query, "get", conn)
-        return items
+        items = eventListIterator(items, user_timezone)
+        if len(items['result']) > 0:
+            for item in items['result']:
+                startDatetime = datetime.strptime(item['event_end_date'] +
+                                                  ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
+                eventStartDatetime = datetime.strptime(
+                    startDatetime, "%Y-%m-%d %H:%M:%S")
+                if eventStartDatetime > datetime.now():
+                    response['result'].append(item)
+
+        return response
 
 
 class CheckAlreadyRegistered(Resource):
@@ -1113,7 +1154,7 @@ class UserProfile(Resource):
                         profile_user_id = \'""" + profile_user_id + """\',
                         title = \'""" + title + """\',
                         company = \'""" + company + """\',
-                        catch_phrase = \'""" + str(catch_phrase).replace("'", "''") + """\',
+                        catch_phrase = \'""" + str(catch_phrase).replace("'", "''").replace("\\n", " ") + """\',
                         images = \' """ + json.dumps(images) + """ \';
                         """)
             print(query2)
@@ -1181,7 +1222,7 @@ class UserProfile(Resource):
                         profile_user_id = \'""" + profile_user_id + """\',
                         title = \'""" + title + """\',
                         company = \'""" + company + """\',
-                        catch_phrase = \'""" + str(catch_phrase).replace("'", "''") + """\',
+                        catch_phrase = \'""" + str(catch_phrase).replace("'", "''").replace("\\n", " ") + """\',
                         images = \' """ + json.dumps(images) + """ \'
                         WHERE profile_uid = \'""" + profile_uid + """\';
                         """)
@@ -1381,6 +1422,10 @@ class EventAttendees(Resource):
 class GetEvents(Resource):
     def get(self):
         conn = connect()
+        response = {}
+        response["message"] = "Successfully executed SQL query."
+        response["code"]: 280
+        response['result'] = []
         user_timezone = request.args.get('timeZone')
         filters = ['event_start_date', 'event_organizer_uid',
                    'event_location', 'event_zip', 'event_type']
@@ -1398,16 +1443,24 @@ class GetEvents(Resource):
                     where[filter] = filterValue
 
         if where == {}:
-            query = ("""SELECT * FROM find_me.events WHERE event_start_date >= DATE_FORMAT(CURDATE(),"%m/%d/%Y")
+            query = ("""SELECT * FROM find_me.events
                         ORDER BY event_start_date,event_start_time  ASC;
                         """)
             items = execute(query, "get", conn)
+            items = eventListIterator(items, user_timezone)
             if len(items['result']) > 0:
                 for item in items['result']:
+
                     query2 = ("""SELECT * FROM  event_user 
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
+                    startDatetime = datetime.strptime(item['event_end_date'] +
+                                                      ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
+                    eventStartDatetime = datetime.strptime(
+                        startDatetime, "%Y-%m-%d %H:%M:%S")
+                    if eventStartDatetime > datetime.now():
+                        response['result'].append(item)
         elif list(where.keys())[0] == 'event_start_date':
             query = (
                 """
@@ -1437,27 +1490,32 @@ class GetEvents(Resource):
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
+                    response['result'].append(item)
 
         else:
 
             query = ("""SELECT * 
                         FROM events 
                         WHERE """ + list(where.keys())[0] + """ = \'""" + list(where.values())[0] + """\'
-                        AND event_start_date >= DATE_FORMAT(CURDATE(),"%m/%d/%Y")
                         ORDER BY event_start_date,event_start_time  ASC;
                         """)
             items = execute(query, "get", conn)
+            items = eventListIterator(items, user_timezone)
             if len(items['result']) > 0:
                 for item in items['result']:
                     query2 = ("""SELECT * FROM  event_user 
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
+                    startDatetime = datetime.strptime(item['event_end_date'] +
+                                                      ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
+                    eventStartDatetime = datetime.strptime(
+                        startDatetime, "%Y-%m-%d %H:%M:%S")
+                    if eventStartDatetime > datetime.now():
+                        response['result'].append(item)
         # print(item)
 
-        # converting event time from UTC to local timezone
-        items = eventListIterator(items, user_timezone)
-        return items
+        return response
 
 
 class GetOrganizers(Resource):
@@ -1707,8 +1765,14 @@ class EventsByZipCodes(Resource):
         # converting event time from UTC to local timezone
         user_timezone = request.args.get('timeZone')
         items = eventListIterator(items, user_timezone)
-
-        response['result'] = items['result']
+        if len(items['result']) > 0:
+            for item in items['result']:
+                startDatetime = datetime.strptime(item['event_end_date'] +
+                                                  ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
+                eventStartDatetime = datetime.strptime(
+                    startDatetime, "%Y-%m-%d %H:%M:%S")
+                if eventStartDatetime > datetime.now():
+                    response['result'].append(item)
         return response
 
 
@@ -1730,8 +1794,14 @@ class EventsByCity(Resource):
         # converting event time from UTC to local timezone
         user_timezone = request.args.get('timeZone')
         items = eventListIterator(items, user_timezone)
-
-        response['result'] = items['result']
+        if len(items['result']) > 0:
+            for item in items['result']:
+                startDatetime = datetime.strptime(item['event_end_date'] +
+                                                  ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
+                eventStartDatetime = datetime.strptime(
+                    startDatetime, "%Y-%m-%d %H:%M:%S")
+                if eventStartDatetime > datetime.now():
+                    response['result'].append(item)
         return response
 
 
@@ -1755,33 +1825,41 @@ class EventsByAddress(Resource):
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
-                addresses = [[item['event_location'], address]]
-                print(addresses)
-                df = pd.DataFrame(addresses, columns=['Address1', 'Address2'])
-                print(df)
-                geolocator = Nominatim(user_agent=app.config['MAIL_USERNAME'])
+                startDatetime = datetime.strptime(item['event_end_date'] +
+                                                  ' ' + item['event_end_time'], "%m/%d/%Y %H:%M %p").strftime("%Y-%m-%d %H:%M:%S")
+                eventStartDatetime = datetime.strptime(
+                    startDatetime, "%Y-%m-%d %H:%M:%S")
+                if eventStartDatetime > datetime.now():
+                    response['result'].append(item)
+                    addresses = [[item['event_location'], address]]
+                    print(addresses)
+                    df = pd.DataFrame(addresses, columns=[
+                                      'Address1', 'Address2'])
+                    print(df)
+                    geolocator = Nominatim(
+                        user_agent=app.config['MAIL_USERNAME'])
 
-                df["Cor1"] = df["Address1"].apply(geolocator.geocode)
-                df['Cor2'] = df["Address2"].apply(geolocator.geocode)
-                df["lat1"] = df['Cor1'].apply(
-                    lambda x: x.latitude if x != None else None)
-                df["lon1"] = df['Cor1'].apply(
-                    lambda x: x.longitude if x != None else None)
-                df["lat2"] = df['Cor2'].apply(
-                    lambda x: x.latitude if x != None else None)
-                df["lon2"] = df['Cor2'].apply(
-                    lambda x: x.longitude if x != None else None)
-                print(df)
-                for index, row in df.iterrows():
-                    address1 = (row["lat1"], row["lon1"])
-                    address2 = (row["lat2"], row["lon2"])
-                    try:
-                        dist = (geodesic(address1, address2).miles)
-                        print(dist, type(dist))
-                        if dist <= int(miles):
-                            response['result'].append(item)
-                    except:
-                        continue
+                    df["Cor1"] = df["Address1"].apply(geolocator.geocode)
+                    df['Cor2'] = df["Address2"].apply(geolocator.geocode)
+                    df["lat1"] = df['Cor1'].apply(
+                        lambda x: x.latitude if x != None else None)
+                    df["lon1"] = df['Cor1'].apply(
+                        lambda x: x.longitude if x != None else None)
+                    df["lat2"] = df['Cor2'].apply(
+                        lambda x: x.latitude if x != None else None)
+                    df["lon2"] = df['Cor2'].apply(
+                        lambda x: x.longitude if x != None else None)
+                    print(df)
+                    for index, row in df.iterrows():
+                        address1 = (row["lat1"], row["lon1"])
+                        address2 = (row["lat2"], row["lon2"])
+                        try:
+                            dist = (geodesic(address1, address2).miles)
+                            print(dist, type(dist))
+                            if dist <= int(miles):
+                                response['result'].append(item)
+                        except:
+                            continue
 
         return response
 
@@ -1894,7 +1972,7 @@ api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
 
 # arrive at event endpoints
-api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
+api.add_resource(NetworkingGraph, "/api/v2 etworkingGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
 api.add_resource(IsOrganizer, "/api/v2/isOrganizer")
 api.add_resource(VerifyCheckinCode, "/api/v2/verifyCheckinCode")
@@ -1907,7 +1985,7 @@ api.add_resource(EventAttend, "/api/v2/eventAttend")
 # add event and user relationship + questions
 
 api.add_resource(EventUser, "/api/v2/EventUser")
-api.add_resource(GetEventUser, "/api/v2/GetEventUser/<string:eu_user_id>")
+api.add_resource(GetEventUser, "/api/v2/GetEventUser")
 api.add_resource(CheckAlreadyRegistered,
                  "/api/v2/CheckAlreadyRegistered/<string:event_id>,<string:user_id>")
 api.add_resource(GetOrganizers, "/api/v2/GetOrganizers")
