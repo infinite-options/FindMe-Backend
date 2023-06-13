@@ -1070,10 +1070,12 @@ class GetEventUser(Resource):
         query = ("""SELECT * FROM event_user eu
                     LEFT JOIN events e
                     ON e.event_uid = eu.eu_event_id
-                    WHERE eu.eu_user_id = \'""" + eu_user_id + """\
-                    ORDER BY event_start_date,event_start_time  ASC;
+                    WHERE eu.eu_user_id = \'""" + eu_user_id + """\'
+                    ORDER BY e.event_start_date,e.event_start_time ASC;
                     """)
+        print(query)
         items = execute(query, "get", conn)
+        print(items)
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
@@ -1084,7 +1086,7 @@ class GetEventUser(Resource):
                     (endDatetime), "%Y-%m-%d %H:%M:%S")
                 if eventEndDatetime > datetime.now():
                     response['result'].append(item)
-        response = eventListIterator(response, user_timezone)
+
         return response
 
 
@@ -1511,13 +1513,20 @@ class GetEvents(Resource):
                 """
             )
             items = execute(query, "get", conn)
+            items = eventListIterator(items, user_timezone)
             if len(items['result']) > 0:
                 for item in items['result']:
                     query2 = ("""SELECT * FROM  event_user 
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
-                    response['result'].append(item)
+                    endTime = convert24(item['event_end_time'])
+                    endDatetime = datetime.strptime(item['event_end_date'] +
+                                                    ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                    eventEndDatetime = datetime.strptime(
+                        (endDatetime), "%Y-%m-%d %H:%M:%S")
+                    if eventEndDatetime > datetime.now():
+                        response['result'].append(item)
         else:
 
             query = ("""SELECT * 
