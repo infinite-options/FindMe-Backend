@@ -505,7 +505,7 @@ class SendEmailAttendee(Resource):
             response = {}
             response['message'] = []
             data = request.get_json(force=True)
-            # print(data)
+            print(data)
             recipient = data['recipient']
             subject = data['subject']
             message = data['message']
@@ -514,25 +514,30 @@ class SendEmailAttendee(Resource):
             eventDescription = data["eventDescription"]
             eventLocation = data["eventLocation"]
             user_timezone = data['user_timezone']
-            eventStartDate = data["event_start_date"]
+            eventStartDate = data["eventStartDate"]
+            eventStartTime = data["eventStartTime"]
             eventStartDateTime = eventStartDate + " " + eventStartTime
-            eventStartDateTimeUTC = convertLocalToUTC(
+            print('here1')
+            eventStartDateTimeUTC = convertUtcToLocal(
                 eventStartDateTime, user_timezone)
 
             eventStartDate = datetime.strptime(
                 eventStartDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
 
             eventStartTime = eventStartDateTimeUTC["time"]
-            eventEndDate = data["event_end_date"]
-            eventEndTime = data["event_end_time"]
+            eventEndDate = data["eventEndDate"]
+            eventEndTime = data["eventEndTime"]
             eventEndDateTime = eventEndDate + " " + eventEndTime
-            eventEndDateTimeUTC = convertLocalToUTC(
+            eventEndDateTimeUTC = convertUtcToLocal(
                 eventEndDateTime, user_timezone)
             eventEndDate = datetime.strptime(
                 eventEndDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
             eventEndTime = eventEndDateTimeUTC["time"]
+            print('here')
             eventRegistrationCode = data["eventRegistrationCode"]
-            eventPhoto = json.loads(data["eventPhoto"])[0]
+            eventPhoto = json.loads(data["eventPhoto"]) if len(json.loads(
+                data["eventPhoto"])) == 0 else json.loads(data["eventPhoto"])[0]
+            print('here2')
             eventCheckinCode = (data["eventCheckinCode"])
             # print(organizer)
             query = """ SELECT * FROM users 
@@ -569,7 +574,7 @@ class SendEmailAttendee(Resource):
                                             <h4>Event Date: """ + str(eventStartDate) + """ from """ + str(eventStartTime) + """ to """ + str(eventEndTime) + """</h4>
                                             <p>Event Location:  """ + str(eventLocation) + """</p>
                                             <p>Event Registration Code:  """ + str(eventRegistrationCode) + """</p>
-                                            <p>Event Check-in Code:  """ + str(eventCheckinCode) + """</p>
+                                            
                                 
                                         </div>
                                     </div>
@@ -706,7 +711,8 @@ class SendTextAttendee(Resource):
             message = data['message']
             eventTitle = data["eventTitle"]
             user_timezone = data['user_timezone']
-            eventStartDate = data["event_start_date"]
+            eventStartDate = data["eventStartDate"]
+            eventStartTime = data["eventStartTime"]
             eventStartDateTime = eventStartDate + " " + eventStartTime
             eventStartDateTimeUTC = convertUtcToLocal(
                 eventStartDateTime, user_timezone)
@@ -715,8 +721,8 @@ class SendTextAttendee(Resource):
                 eventStartDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
 
             eventStartTime = eventStartDateTimeUTC["time"]
-            eventEndDate = data["event_end_date"]
-            eventEndTime = data["event_end_time"]
+            eventEndDate = data["eventEndDate"]
+            eventEndTime = data["eventEndTime"]
             eventEndDateTime = eventEndDate + " " + eventEndTime
             eventEndDateTimeUTC = convertUtcToLocal(
                 eventEndDateTime, user_timezone)
@@ -1415,7 +1421,7 @@ class NetworkingGraph(Resource):
         finally:
             disconnect(conn)
         return response, 200
-    
+
 
 class OverallGraph(Resource):
     def get(self):
@@ -1669,7 +1675,7 @@ class GetEvents(Resource):
 
         # response = eventListIterator(response, user_timezone)
 
-        # strip leading 0s from event time 
+        # strip leading 0s from event time
         print(response['result'])
         for item in response['result']:
             item['event_start_time'] = item['event_start_time'].lstrip("0")
