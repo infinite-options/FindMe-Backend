@@ -1471,6 +1471,7 @@ class GetEvents(Resource):
                     where[filter] = filterValue
 
         if where == {}:
+            print('in no filter')
             query = ("""SELECT * FROM find_me.events
                         ORDER BY event_start_date,event_start_time  ASC;
                         """)
@@ -2015,9 +2016,8 @@ api.add_resource(EventsByAddress, '/api/v2/EventsByAddress')
 # event pre-registration endpoints
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
-
 # arrive at event endpoints
-api.add_resource(NetworkingGraph, "/api/v2 etworkingGraph")
+api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
 api.add_resource(IsOrganizer, "/api/v2/isOrganizer")
 api.add_resource(VerifyCheckinCode, "/api/v2/verifyCheckinCode")
