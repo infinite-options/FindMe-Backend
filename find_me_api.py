@@ -1602,6 +1602,12 @@ class GetEvents(Resource):
         # print(item)
 
         # response = eventListIterator(response, user_timezone)
+
+        # strip leading 0s from event time 
+        print(response['result'])
+        for item in response['result']:
+            item['event_start_time'] = item['event_start_time'].lstrip("0")
+            item['event_end_time'] = item['event_end_time'].lstrip("0")
         return response
 
 
