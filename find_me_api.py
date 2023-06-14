@@ -1079,12 +1079,24 @@ class GetEventUser(Resource):
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
+                # converting end time to datetime 24hr format
                 endTime = convert24(item['event_end_time'])
                 endDatetime = datetime.strptime(item['event_end_date'] +
                                                 ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
                 eventEndDatetime = datetime.strptime(
                     (endDatetime), "%Y-%m-%d %H:%M:%S")
-                if eventEndDatetime > datetime.now():
+
+                # converting current time to local datetime 24hr format
+                currentDatetimeLocal = convertUtcToLocal(
+                    datetime.now().strftime("%m/%d/%Y %I:%M %p"), user_timezone)
+                currentDate = currentDatetimeLocal['date']
+                currentTime = convert24(currentDatetimeLocal['time'])
+                currentDatetime = datetime.strptime(currentDate +
+                                                    ' ' + currentTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventCurrentDatetime = datetime.strptime(
+                    (currentDatetime), "%Y-%m-%d %H:%M:%S")
+                # comparing endtime and current time
+                if eventEndDatetime > eventCurrentDatetime:
                     response['result'].append(item)
 
         return response
@@ -1484,12 +1496,24 @@ class GetEvents(Resource):
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
+                    # converting end time to datetime 24hr format
                     endTime = convert24(item['event_end_time'])
                     endDatetime = datetime.strptime(item['event_end_date'] +
                                                     ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
                     eventEndDatetime = datetime.strptime(
                         (endDatetime), "%Y-%m-%d %H:%M:%S")
-                    if eventEndDatetime > datetime.now():
+
+                    # converting current time to local datetime 24hr format
+                    currentDatetimeLocal = convertUtcToLocal(
+                        datetime.now().strftime("%m/%d/%Y %I:%M %p"), user_timezone)
+                    currentDate = currentDatetimeLocal['date']
+                    currentTime = convert24(currentDatetimeLocal['time'])
+                    currentDatetime = datetime.strptime(currentDate +
+                                                        ' ' + currentTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                    eventCurrentDatetime = datetime.strptime(
+                        (currentDatetime), "%Y-%m-%d %H:%M:%S")
+                    # comparing endtime and current time
+                    if eventEndDatetime > eventCurrentDatetime:
                         response['result'].append(item)
         elif list(where.keys())[0] == 'event_start_date':
             query = (
@@ -1521,12 +1545,24 @@ class GetEvents(Resource):
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
+                    # converting end time to datetime 24hr format
                     endTime = convert24(item['event_end_time'])
                     endDatetime = datetime.strptime(item['event_end_date'] +
                                                     ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
                     eventEndDatetime = datetime.strptime(
                         (endDatetime), "%Y-%m-%d %H:%M:%S")
-                    if eventEndDatetime > datetime.now():
+
+                    # converting current time to local datetime 24hr format
+                    currentDatetimeLocal = convertUtcToLocal(
+                        datetime.now().strftime("%m/%d/%Y %I:%M %p"), user_timezone)
+                    currentDate = currentDatetimeLocal['date']
+                    currentTime = convert24(currentDatetimeLocal['time'])
+                    currentDatetime = datetime.strptime(currentDate +
+                                                        ' ' + currentTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                    eventCurrentDatetime = datetime.strptime(
+                        (currentDatetime), "%Y-%m-%d %H:%M:%S")
+                    # comparing endtime and current time
+                    if eventEndDatetime > eventCurrentDatetime:
                         response['result'].append(item)
         else:
 
@@ -1544,12 +1580,24 @@ class GetEvents(Resource):
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
                     item['num_attendees'] = len(items2['result'])
+                    # converting end time to datetime 24hr format
                     endTime = convert24(item['event_end_time'])
                     endDatetime = datetime.strptime(item['event_end_date'] +
                                                     ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
                     eventEndDatetime = datetime.strptime(
                         (endDatetime), "%Y-%m-%d %H:%M:%S")
-                    if eventEndDatetime > datetime.now():
+
+                    # converting current time to local datetime 24hr format
+                    currentDatetimeLocal = convertUtcToLocal(
+                        datetime.now().strftime("%m/%d/%Y %I:%M %p"), user_timezone)
+                    currentDate = currentDatetimeLocal['date']
+                    currentTime = convert24(currentDatetimeLocal['time'])
+                    currentDatetime = datetime.strptime(currentDate +
+                                                        ' ' + currentTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                    eventCurrentDatetime = datetime.strptime(
+                        (currentDatetime), "%Y-%m-%d %H:%M:%S")
+                    # comparing endtime and current time
+                    if eventEndDatetime > eventCurrentDatetime:
                         response['result'].append(item)
         # print(item)
 
@@ -1579,12 +1627,24 @@ class GetOrganizers(Resource):
         print(items['result'])
         if len(items['result']) > 0:
             for item in items['result']:
+                # converting end time to datetime 24hr format
                 endTime = convert24(item['event_end_time'])
                 endDatetime = datetime.strptime(item['event_end_date'] +
                                                 ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
                 eventEndDatetime = datetime.strptime(
                     (endDatetime), "%Y-%m-%d %H:%M:%S")
-                if eventEndDatetime > datetime.now():
+
+                # converting current time to local datetime 24hr format
+                currentDatetimeLocal = convertUtcToLocal(
+                    datetime.now().strftime("%m/%d/%Y %I:%M %p"), user_timezone)
+                currentDate = currentDatetimeLocal['date']
+                currentTime = convert24(currentDatetimeLocal['time'])
+                currentDatetime = datetime.strptime(currentDate +
+                                                    ' ' + currentTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventCurrentDatetime = datetime.strptime(
+                    (currentDatetime), "%Y-%m-%d %H:%M:%S")
+                # comparing endtime and current time
+                if eventEndDatetime > eventCurrentDatetime:
                     response['result'].append(item)
         # print(items)
         seen = collections.OrderedDict()
@@ -1810,12 +1870,24 @@ class EventsByZipCodes(Resource):
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
+                # converting end time to datetime 24hr format
                 endTime = convert24(item['event_end_time'])
                 endDatetime = datetime.strptime(item['event_end_date'] +
                                                 ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
                 eventEndDatetime = datetime.strptime(
                     (endDatetime), "%Y-%m-%d %H:%M:%S")
-                if eventEndDatetime > datetime.now():
+
+                # converting current time to local datetime 24hr format
+                currentDatetimeLocal = convertUtcToLocal(
+                    datetime.now().strftime("%m/%d/%Y %I:%M %p"), user_timezone)
+                currentDate = currentDatetimeLocal['date']
+                currentTime = convert24(currentDatetimeLocal['time'])
+                currentDatetime = datetime.strptime(currentDate +
+                                                    ' ' + currentTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventCurrentDatetime = datetime.strptime(
+                    (currentDatetime), "%Y-%m-%d %H:%M:%S")
+                # comparing endtime and current time
+                if eventEndDatetime > eventCurrentDatetime:
                     response['result'].append(item)
         return response
 
@@ -1840,12 +1912,24 @@ class EventsByCity(Resource):
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
+                # converting end time to datetime 24hr format
                 endTime = convert24(item['event_end_time'])
                 endDatetime = datetime.strptime(item['event_end_date'] +
                                                 ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
                 eventEndDatetime = datetime.strptime(
                     (endDatetime), "%Y-%m-%d %H:%M:%S")
-                if eventEndDatetime > datetime.now():
+
+                # converting current time to local datetime 24hr format
+                currentDatetimeLocal = convertUtcToLocal(
+                    datetime.now().strftime("%m/%d/%Y %I:%M %p"), user_timezone)
+                currentDate = currentDatetimeLocal['date']
+                currentTime = convert24(currentDatetimeLocal['time'])
+                currentDatetime = datetime.strptime(currentDate +
+                                                    ' ' + currentTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventCurrentDatetime = datetime.strptime(
+                    (currentDatetime), "%Y-%m-%d %H:%M:%S")
+                # comparing endtime and current time
+                if eventEndDatetime > eventCurrentDatetime:
                     response['result'].append(item)
         return response
 
@@ -1870,12 +1954,24 @@ class EventsByAddress(Resource):
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
+                # converting end time to datetime 24hr format
                 endTime = convert24(item['event_end_time'])
                 endDatetime = datetime.strptime(item['event_end_date'] +
                                                 ' ' + endTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
                 eventEndDatetime = datetime.strptime(
                     (endDatetime), "%Y-%m-%d %H:%M:%S")
-                if eventEndDatetime > datetime.now():
+
+                # converting current time to local datetime 24hr format
+                currentDatetimeLocal = convertUtcToLocal(
+                    datetime.now().strftime("%m/%d/%Y %I:%M %p"), user_timezone)
+                currentDate = currentDatetimeLocal['date']
+                currentTime = convert24(currentDatetimeLocal['time'])
+                currentDatetime = datetime.strptime(currentDate +
+                                                    ' ' + currentTime, "%m/%d/%Y %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+                eventCurrentDatetime = datetime.strptime(
+                    (currentDatetime), "%Y-%m-%d %H:%M:%S")
+                # comparing endtime and current time
+                if eventEndDatetime > eventCurrentDatetime:
                     response['result'].append(item)
                     addresses = [[item['event_location'], address]]
                     print(addresses)
