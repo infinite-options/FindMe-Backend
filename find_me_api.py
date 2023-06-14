@@ -786,7 +786,7 @@ class AddEvent(Resource):
 
             eventStartDateTime = eventStartDate + " " + eventStartTime
             # print(" eventStartDateTime ",eventStartDateTime)
-            eventStartDateTimeUTC = convertUtcToLocal(
+            eventStartDateTimeUTC = convertLocalToUTC(
                 eventStartDateTime, user_timezone)
             eventStartDate = eventStartDateTimeUTC["date"]
             eventStartTime = eventStartDateTimeUTC["time"]
@@ -794,7 +794,7 @@ class AddEvent(Resource):
 
             eventEndDateTime = eventEndDate + " " + eventEndTime
             # print(" eventEndDateTime ",eventEndDateTime)
-            eventEndDateTimeUTC = convertUtcToLocal(
+            eventEndDateTimeUTC = convertLocalToUTC(
                 eventEndDateTime, user_timezone)
             eventEndDate = eventEndDateTimeUTC["date"]
             eventEndTime = eventEndDateTimeUTC["time"]
