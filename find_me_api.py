@@ -1380,7 +1380,6 @@ class NetworkingGraph(Resource):
             for idx, value in enumerate(query_result):
                 if user_id == value["user_uid"]:
                     user = query_result.pop(idx)
-                    user["graph_code"] = 1
                     user_group.append(user)
             # Finding who the current user can help
             needer_roles = set()
@@ -1390,7 +1389,6 @@ class NetworkingGraph(Resource):
             for idx, needer_user in enumerate(query_result):
                 if any(role in needer_roles for role in needer_user["role"].split(", ")) and len(needers) < 3:
                     needer_user = query_result.pop(idx)
-                    needer_user["graph_code"] = 5
                     user_group.append(needer_user)
                     needers.append({
                         "from": user["user_uid"],
@@ -1404,7 +1402,6 @@ class NetworkingGraph(Resource):
             for idx, helper_user in enumerate(query_result):
                 if any(role in helper_roles for role in helper_user["role"].split(", ")) and len(helpers) < 3:
                     helper_user = query_result.pop(idx)
-                    helper_user["graph_code"] = 15
                     user_group.append(helper_user)
                     helpers.append({
                         "from": helper_user["user_uid"],
@@ -1413,6 +1410,75 @@ class NetworkingGraph(Resource):
             response["message"] = "successful"
             response["users"] = user_group
             response["links"] = helpers + needers
+        except Exception as e:
+            raise InternalServerError("An unknown error occured.") from e
+        finally:
+            disconnect(conn)
+        return response, 200
+    
+
+class OverallGraph(Resource):
+    def get(self):
+        response = {}
+        helper_map = {
+            "Founder": ["Founder", "Looking for Next Opportunity"],
+            "VC": ["VC"],
+            "Looking for Next Opportunity": ["Looking for Next Opportunity"],
+        }
+        needer_map = {
+            "Founder": ["VC"],
+            "VC": ["Founder"],
+            "Looking for Next Opportunity": ["Founder", "VC"],
+        }
+        try:
+            args = request.args
+            event_id = args["eventId"]
+            query = (
+                """
+                SELECT user_uid, first_name, last_name, role, images
+                FROM find_me.users u INNER JOIN find_me.event_user eu 
+                    ON u.user_uid = eu.eu_user_id
+                    INNER JOIN find_me.profile_user pu 
+                    ON u.user_uid = pu.profile_user_id
+                WHERE eu.eu_attend = 1 
+                AND eu.eu_event_id = \'"""
+                + event_id
+                + """\';
+                """
+            )
+            conn = connect()
+            query_result = execute(query, "get", conn)["result"]
+            # Finding connections for each user
+            links = []
+            for idx in range(len(query_result)):
+                users = query_result.copy()
+                user = users.pop(idx)
+                # Finding who the current user can help
+                needer_roles = set()
+                for role in user["role"].split(", "):
+                    needer_roles.update(needer_map[role])
+                needers = []
+                for idx, needer_user in enumerate(users):
+                    if any(role in needer_roles for role in needer_user["role"].split(", ")):
+                        needers.append({
+                            "from": user["user_uid"],
+                            "to": needer_user["user_uid"],
+                        })
+                # Finding who can help the current user
+                helper_roles = set()
+                for role in user["role"].split(", "):
+                    helper_roles.update(helper_map[role])
+                helpers = []
+                for idx, helper_user in enumerate(users):
+                    if any(role in helper_roles for role in helper_user["role"].split(", ")):
+                        helpers.append({
+                            "from": helper_user["user_uid"],
+                            "to": user["user_uid"],
+                        })
+                links = links + helpers + needers
+            response["message"] = "successful"
+            response["users"] = query_result
+            response["links"] = links
         except Exception as e:
             raise InternalServerError("An unknown error occured.") from e
         finally:
@@ -2114,6 +2180,7 @@ api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
 # arrive at event endpoints
 api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
+api.add_resource(OverallGraph, "/api/v2/overallGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
 api.add_resource(IsOrganizer, "/api/v2/isOrganizer")
 api.add_resource(VerifyCheckinCode, "/api/v2/verifyCheckinCode")
