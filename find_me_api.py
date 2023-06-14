@@ -517,7 +517,7 @@ class SendEmailAttendee(Resource):
             eventStartDate = data["eventStartDate"]
             eventStartTime = data["eventStartTime"]
             eventStartDateTime = eventStartDate + " " + eventStartTime
-            print('here1')
+
             eventStartDateTimeUTC = convertUtcToLocal(
                 eventStartDateTime, user_timezone)
 
@@ -533,11 +533,11 @@ class SendEmailAttendee(Resource):
             eventEndDate = datetime.strptime(
                 eventEndDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
             eventEndTime = eventEndDateTimeUTC["time"]
-            print('here')
+
             eventRegistrationCode = data["eventRegistrationCode"]
             eventPhoto = json.loads(data["eventPhoto"]) if len(json.loads(
                 data["eventPhoto"])) == 0 else json.loads(data["eventPhoto"])[0]
-            print('here2')
+
             eventCheckinCode = (data["eventCheckinCode"])
             # print(organizer)
             query = """ SELECT * FROM users 
@@ -546,12 +546,12 @@ class SendEmailAttendee(Resource):
 
             # print(msg)
             with smtplib.SMTP_SSL('smtp.mydomain.com', 465) as smtp:
-                print('here')
+
                 smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
                 for e in range(len(recipient)):
-                    print(recipient[e])
+
                     try:
-                        print('in try', recipient[e])
+                        # print('in try', recipient[e])
 
                         msg = EmailMessage()
                         msg['Subject'] = str(eventTitle) + ': ' + str(subject)
@@ -583,12 +583,12 @@ class SendEmailAttendee(Resource):
                         </html>
                         """.format(items)
                         msg.set_content(html, subtype='html')
-                        print(msg)
+                        # print(msg)
                         smtp.send_message(msg)
                         response['message'].append(
                             'Email to ' + recipient[e] + ' sent successfully')
                     except:
-                        print('in except', recipient[e])
+                        # print('in except', recipient[e])
                         response['message'].append(
                             'Email to ' + recipient[e] + ' failed')
                         continue
@@ -736,21 +736,21 @@ class SendTextAttendee(Resource):
             for e in range(len(recipient)):
                 text_msg = (subject + "\n" +
                             message + "\n" + 'Event: ' + eventTitle + "\n" + 'On ' + eventStartDate + ' from ' + eventStartTime + ' to ' + eventEndTime + "\n" + 'Registration Code: ' + eventRegistrationCode)
-                print(text_msg)
+                # print(text_msg)
                 try:
                     Send_Twilio_SMS2(
                         text_msg, recipient[e])
-
-                    response['message'] = 'Text message to ' + \
-                        recipient[e] + ' sent successfully'
-                    print('here', response)
+                    response['message'].append(
+                        'Text message to ' +
+                        recipient[e] + ' sent successfully')
 
                 except:
-                    response['message'] = 'Text message to ' + \
-                        recipient[e] + ' failed'
+                    response['message'].append('Text message to ' +
+                                               recipient[e] + ' failed')
+
                     continue
 
-                print(response)
+                # print(response)
 
             return response
 
