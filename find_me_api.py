@@ -1392,9 +1392,8 @@ class NetworkingGraph(Resource):
             for role in user["role"].split(", "):
                 needer_roles.update(needer_map[role])
             needers = []
-            for idx, needer_user in enumerate(query_result):
+            for needer_user in query_result:
                 if any(role in needer_roles for role in needer_user["role"].split(", ")) and len(needers) < 3:
-                    needer_user = query_result.pop(idx)
                     user_group.append(needer_user)
                     needers.append({
                         "from": user["user_uid"],
@@ -1405,9 +1404,8 @@ class NetworkingGraph(Resource):
             for role in user["role"].split(", "):
                 helper_roles.update(helper_map[role])
             helpers = []
-            for idx, helper_user in enumerate(query_result):
+            for helper_user in query_result:
                 if any(role in helper_roles for role in helper_user["role"].split(", ")) and len(helpers) < 3:
-                    helper_user = query_result.pop(idx)
                     user_group.append(helper_user)
                     helpers.append({
                         "from": helper_user["user_uid"],
