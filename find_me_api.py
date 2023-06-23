@@ -1381,36 +1381,44 @@ class NetworkingGraph(Resource):
             conn = connect()
             query_result = execute(query, "get", conn)["result"]
             user_group = []
-            # Finding current user data
             user = {}
             for idx, value in enumerate(query_result):
                 if user_id == value["user_uid"]:
                     user = query_result.pop(idx)
                     user_group.append(user)
-            # Finding who the current user can help
             needer_roles = set()
             for role in user["role"].split(", "):
                 needer_roles.update(needer_map[role])
             needers = []
             for needer_user in query_result:
-                if any(role in needer_roles for role in needer_user["role"].split(", ")) and len(needers) < 3:
+                if any(role in needer_roles for role in needer_user["role"].split(", ")) and len(user_group) < 6:
                     user_group.append(needer_user)
                     needers.append({
                         "from": user["user_uid"],
                         "to": needer_user["user_uid"],
                     })
-            # Finding who can help the current user
+                    if any(role in helper_map[role] for role in needer_user["role"].split(", ")):
+                        needers.append({
+                            "to": user["user_uid"],
+                            "from": needer_user["user_uid"],
+                        })
+                        
             helper_roles = set()
             for role in user["role"].split(", "):
                 helper_roles.update(helper_map[role])
             helpers = []
             for helper_user in query_result:
-                if any(role in helper_roles for role in helper_user["role"].split(", ")) and len(helpers) < 3:
+                if any(role in helper_roles for role in helper_user["role"].split(", ")) and len(user_group) < 6:
                     user_group.append(helper_user)
                     helpers.append({
                         "from": helper_user["user_uid"],
                         "to": user["user_uid"],
                     })
+                    if any(role in needer_map[role] for role in helper_user["role"].split(", ")):
+                        helpers.append({
+                            "to": helper_user["user_uid"],
+                            "from": user["user_uid"],
+                        })
             response["message"] = "successful"
             response["users"] = user_group
             response["links"] = helpers + needers
