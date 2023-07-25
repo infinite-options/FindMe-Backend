@@ -772,20 +772,20 @@ class AddEvent(Resource):
             event = request.form
             print("**", event)
             event_organizer_uid = event["event_organizer_uid"]
-            eventType = event["eventType"]
-            eventVisibility = event["eventVisibility"]
-            eventTitle = event["eventTitle"]
-            eventDescription = event["eventDescription"]
-            eventCapacity = event["eventCapacity"]
-            eventLocation = event["eventLocation"]
-            eventZip = event["eventZip"]
-            eventLocationName = event["eventLocationName"]
-            eventStartTime = event["eventStartTime"]
-            eventEndTime = event["eventEndTime"]
-            eventStartDate = event["eventStartDate"]
-            eventEndDate = event["eventEndDate"]
+            eventType = event["event_type"]
+            eventVisibility = event["event_visibility"]
+            eventTitle = event["event_title"]
+            eventDescription = event["event_description"]
+            eventCapacity = event["event_capacity"]
+            eventLocation = event["event_location"]
+            eventZip = event["event_zip"]
+            eventLocationName = event["event_location_name"]
+            eventStartTime = event["event_start_time"]
+            eventEndTime = event["event_end_time"]
+            eventStartDate = event["event_start_date"]
+            eventEndDate = event["event_end_date"]
             # eventPhoto = event["eventPhoto"]
-            preEventQuestionnaire = event["preEventQuestionnaire"]
+            preEventQuestionnaire = event["pre_event_questionnaire"]
             # print(preEventQuestionnaire)
             user_timezone = event["user_timezone"]
             # print(user_timezone)
@@ -887,20 +887,20 @@ class UpdateEvent(Resource):
             # print("**", event)
             event_uid = event["event_uid"]
             event_organizer_uid = event["event_organizer_uid"]
-            eventType = event["eventType"]
-            eventVisibility = event["eventVisibility"]
-            eventTitle = event["eventTitle"]
-            eventDescription = event["eventDescription"]
-            eventCapacity = event["eventCapacity"]
-            eventLocation = event["eventLocation"]
-            eventLocationName = event["eventLocationName"]
-            eventZip = event["eventZip"]
-            eventStartTime = event["eventStartTime"]
-            eventEndTime = event["eventEndTime"]
-            eventStartDate = event["eventStartDate"]
-            eventEndDate = event["eventEndDate"]
-            eventRegCode = event["eventRegistrationCode"]
-            preEventQuestionnaire = event["preEventQuestionnaire"]
+            eventType = event["event_type"]
+            eventVisibility = event["event_visibility"]
+            eventTitle = event["event_title"]
+            eventDescription = event["event_description"]
+            eventCapacity = event["event_capacity"]
+            eventLocation = event["event_location"]
+            eventLocationName = event["event_location_name"]
+            eventZip = event["event_zip"]
+            eventStartTime = event["event_start_time"]
+            eventEndTime = event["event_end_time"]
+            eventStartDate = event["event_start_date"]
+            eventEndDate = event["event_end_date"]
+            eventRegCode = event["event_registration_code"]
+            preEventQuestionnaire = event["pre_event_questionnaire"]
             user_timezone = event["user_timezone"]
 
             eventStartDateTime = eventStartDate + " " + eventStartTime
@@ -1073,15 +1073,30 @@ class GetEventUser(Resource):
         response['result'] = []
         user_timezone = request.args.get('timeZone')
         eu_user_id = request.args.get('eu_user_id')
-        query = ("""SELECT * FROM event_user eu
-                    LEFT JOIN events e
+
+        # query = ("""SELECT * FROM event_user eu
+        #             LEFT JOIN events e
+        #             ON e.event_uid = eu.eu_event_id
+        #             WHERE eu.eu_user_id = \'""" + eu_user_id + """\'
+        #             ORDER BY e.event_start_date,e.event_start_time ASC;
+        #             """)
+
+        query = ("""SELECT * FROM find_me.event_user eu
+                    LEFT JOIN find_me.events e
                     ON e.event_uid = eu.eu_event_id
+                    LEFT JOIN (
+                        SELECT eu_event_id, count(eu_qas) AS registrants, sum(eu_attend) AS attendees FROM find_me.event_user eu
+                        GROUP BY eu_event_id )
+                        AS a
+                        ON eu.eu_event_id = a.eu_event_id
                     WHERE eu.eu_user_id = \'""" + eu_user_id + """\'
                     ORDER BY e.event_start_date,e.event_start_time ASC;
-                    """)
-        print(query)
+                 """)
+
+
+        # print(query)
         items = execute(query, "get", conn)
-        print(items)
+        # pri   nt(items)
         items = eventListIterator(items, user_timezone)
         if len(items['result']) > 0:
             for item in items['result']:
@@ -1573,7 +1588,7 @@ class GetEvents(Resource):
                     query2 = ("""SELECT * FROM  event_user 
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
-                    item['num_attendees'] = len(items2['result'])
+                    item['registrants'] = len(items2['result'])
                     # converting end time to datetime 24hr format
                     endTime = convert24(item['event_end_time'])
                     endDatetime = datetime.strptime(item['event_end_date'] +
@@ -1622,7 +1637,7 @@ class GetEvents(Resource):
                     query2 = ("""SELECT * FROM  event_user 
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
-                    item['num_attendees'] = len(items2['result'])
+                    item['registrants'] = len(items2['result'])
                     # converting end time to datetime 24hr format
                     endTime = convert24(item['event_end_time'])
                     endDatetime = datetime.strptime(item['event_end_date'] +
@@ -1651,13 +1666,13 @@ class GetEvents(Resource):
                         """)
             items = execute(query, "get", conn)
             items = eventListIterator(items, user_timezone)
-            print(items['result'])
+            # print(items['result'])
             if len(items['result']) > 0:
                 for item in items['result']:
                     query2 = ("""SELECT * FROM  event_user 
                                 WHERE eu_event_id = \'""" + item['event_uid'] + """\'""")
                     items2 = execute(query2, "get", conn)
-                    item['num_attendees'] = len(items2['result'])
+                    item['registrants'] = len(items2['result'])
                     # converting end time to datetime 24hr format
                     endTime = convert24(item['event_end_time'])
                     endDatetime = datetime.strptime(item['event_end_date'] +
@@ -1682,7 +1697,7 @@ class GetEvents(Resource):
         # response = eventListIterator(response, user_timezone)
 
         # strip leading 0s from event time
-        print(response['result'])
+        # print(response['result'])
         for item in response['result']:
             item['event_start_time'] = item['event_start_time'].lstrip("0")
             item['event_end_time'] = item['event_end_time'].lstrip("0")
