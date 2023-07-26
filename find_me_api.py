@@ -1372,7 +1372,7 @@ class NetworkingGraph(Resource):
             "Looking for Next Opportunity": ["Looking for Next Opportunity"],
         }
         needer_map = {
-            "Founder": ["VC"],
+            "Founder": ["VC", "Looking for Next Opportunity"],
             "VC": ["Founder"],
             "Looking for Next Opportunity": ["Founder", "VC"],
         }
@@ -1414,8 +1414,8 @@ class NetworkingGraph(Resource):
                     })
                     if any(role in helper_map[role] for role in needer_user["role"].split(", ")):
                         needers.append({
-                            "to": user["user_uid"],
                             "from": needer_user["user_uid"],
+                            "to": user["user_uid"],
                         })
                         
             helper_roles = set()
@@ -1431,8 +1431,8 @@ class NetworkingGraph(Resource):
                     })
                     if any(role in needer_map[role] for role in helper_user["role"].split(", ")):
                         helpers.append({
-                            "to": helper_user["user_uid"],
                             "from": user["user_uid"],
+                            "to": helper_user["user_uid"],
                         })
             response["message"] = "successful"
             response["users"] = user_group
@@ -1453,7 +1453,7 @@ class OverallGraph(Resource):
             "Looking for Next Opportunity": ["Looking for Next Opportunity"],
         }
         needer_map = {
-            "Founder": ["VC"],
+            "Founder": ["VC", "Looking for Next Opportunity"],
             "VC": ["Founder"],
             "Looking for Next Opportunity": ["Founder", "VC"],
         }
@@ -1491,6 +1491,11 @@ class OverallGraph(Resource):
                             "from": user["user_uid"],
                             "to": needer_user["user_uid"],
                         })
+                    if any(role in helper_map[role] for role in needer_user["role"].split(", ")):
+                        needers.append({
+                            "from": needer_user["user_uid"],
+                            "to": user["user_uid"],
+                        })
                 # Finding who can help the current user
                 helper_roles = set()
                 for role in user["role"].split(", "):
@@ -1501,6 +1506,11 @@ class OverallGraph(Resource):
                         helpers.append({
                             "from": helper_user["user_uid"],
                             "to": user["user_uid"],
+                        })
+                    if any(role in needer_map[role] for role in helper_user["role"].split(", ")):
+                        helpers.append({
+                            "from": user["user_uid"],
+                            "to": helper_user["user_uid"],
                         })
                 links = links + helpers + needers
             response["message"] = "successful"
@@ -1560,7 +1570,7 @@ class GetEvents(Resource):
         response["code"]: 280
         response['result'] = []
         user_timezone = request.args.get('timeZone')
-        filters = ['event_start_date', 'event_organizer_uid',
+        filters = ['event_start_date', 'event_organizer_uid', "event_uid", 
                    'event_location', 'event_zip', 'event_type']
         where = {}
         for filter in filters:
