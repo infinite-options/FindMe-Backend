@@ -1002,8 +1002,8 @@ class EventUser(Resource):
             eu_event_id = event['eu_event_id']
             eu_qas = event['eu_qas']
 
-            query0 = ("""SELECT IF(event_capacity != 'No Limit' AND 
-                      COUNT(event_user_uid)>event_capacity, '0', '1') AS event_limit 
+            query0 = ("""SELECT IF(event_capacity = 'No Limit' OR 
+                      COUNT(event_user_uid) < CAST(event_capacity AS UNSIGNED), '1', '0') AS event_limit 
                       FROM find_me.events INNER JOIN find_me.event_user 
                       ON eu_event_id = event_uid 
                       WHERE event_uid = \'""" + eu_event_id + """\';
