@@ -1002,6 +1002,17 @@ class EventUser(Resource):
             eu_event_id = event['eu_event_id']
             eu_qas = event['eu_qas']
 
+            query0 = ("""SELECT IF(event_capacity != 'No Limit' AND 
+                      COUNT(event_user_uid)>event_capacity, '0', '1') AS event_limit 
+                      FROM find_me.events INNER JOIN find_me.event_user 
+                      ON eu_event_id = event_uid 
+                      WHERE event_uid = \'""" + eu_event_id + """\';
+                        """)
+            items0 = execute(query0, "get", conn)["result"]
+            if items0[0]["event_limit"] == "0":
+                response["message"] = "Registration limit reached."
+                return response
+
             query1 = ["CALL find_me.get_event_user_id;"]
             NewIDresponse = execute(query1[0], "get", conn)
             newEventUserID = NewIDresponse["result"][0]["new_id"]
@@ -1372,7 +1383,7 @@ class NetworkingGraph(Resource):
             "Looking for Next Opportunity": ["Looking for Next Opportunity"],
         }
         needer_map = {
-            "Founder": ["VC", "Looking for Next Opportunity"],
+            "Founder": ["VC"],
             "VC": ["Founder"],
             "Looking for Next Opportunity": ["Founder", "VC"],
         }
@@ -1453,7 +1464,7 @@ class OverallGraph(Resource):
             "Looking for Next Opportunity": ["Looking for Next Opportunity"],
         }
         needer_map = {
-            "Founder": ["VC", "Looking for Next Opportunity"],
+            "Founder": ["VC"],
             "VC": ["Founder"],
             "Looking for Next Opportunity": ["Founder", "VC"],
         }
