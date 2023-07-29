@@ -510,12 +510,12 @@ class SendEmailAttendee(Resource):
             subject = data['subject']
             message = data['message']
             organizer = data['event_organizer_uid']
-            eventTitle = data["eventTitle"]
-            eventDescription = data["eventDescription"]
-            eventLocation = data["eventLocation"]
+            eventTitle = data["event_title"]
+            eventDescription = data["event_description"]
+            eventLocation = data["event_location"]
             user_timezone = data['user_timezone']
-            eventStartDate = data["eventStartDate"]
-            eventStartTime = data["eventStartTime"]
+            eventStartDate = data["event_start_date"]
+            eventStartTime = data["event_start_time"]
             eventStartDateTime = eventStartDate + " " + eventStartTime
 
             eventStartDateTimeUTC = convertUtcToLocal(
@@ -525,8 +525,8 @@ class SendEmailAttendee(Resource):
                 eventStartDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
 
             eventStartTime = eventStartDateTimeUTC["time"]
-            eventEndDate = data["eventEndDate"]
-            eventEndTime = data["eventEndTime"]
+            eventEndDate = data["event_end_date"]
+            eventEndTime = data["event_end_time"]
             eventEndDateTime = eventEndDate + " " + eventEndTime
             eventEndDateTimeUTC = convertUtcToLocal(
                 eventEndDateTime, user_timezone)
@@ -534,11 +534,11 @@ class SendEmailAttendee(Resource):
                 eventEndDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
             eventEndTime = eventEndDateTimeUTC["time"]
 
-            eventRegistrationCode = data["eventRegistrationCode"]
-            eventPhoto = json.loads(data["eventPhoto"]) if len(json.loads(
-                data["eventPhoto"])) == 0 else json.loads(data["eventPhoto"])[0]
+            eventRegistrationCode = data["event_registration_code"]
+            eventPhoto = json.loads(data["event_photo"]) if len(json.loads(
+                data["event_photo"])) == 0 else json.loads(data["event_photo"])[0]
 
-            eventCheckinCode = (data["eventCheckinCode"])
+            eventCheckinCode = (data["event_checkin_code"])
             # print(organizer)
             query = """ SELECT * FROM users 
                         WHERE user_uid = \'""" + organizer + """\'"""
@@ -709,10 +709,10 @@ class SendTextAttendee(Resource):
             recipient = data['recipient']
             subject = data['subject']
             message = data['message']
-            eventTitle = data["eventTitle"]
+            eventTitle = data["event_title"]
             user_timezone = data['user_timezone']
-            eventStartDate = data["eventStartDate"]
-            eventStartTime = data["eventStartTime"]
+            eventStartDate = data["event_start_date"]
+            eventStartTime = data["event_start_time"]
             eventStartDateTime = eventStartDate + " " + eventStartTime
             eventStartDateTimeUTC = convertUtcToLocal(
                 eventStartDateTime, user_timezone)
@@ -721,8 +721,8 @@ class SendTextAttendee(Resource):
                 eventStartDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
 
             eventStartTime = eventStartDateTimeUTC["time"]
-            eventEndDate = data["eventEndDate"]
-            eventEndTime = data["eventEndTime"]
+            eventEndDate = data["event_end_date"]
+            eventEndTime = data["event_end_time"]
             eventEndDateTime = eventEndDate + " " + eventEndTime
             eventEndDateTimeUTC = convertUtcToLocal(
                 eventEndDateTime, user_timezone)
@@ -730,8 +730,8 @@ class SendTextAttendee(Resource):
                 eventEndDateTimeUTC["date"], "%m/%d/%Y").strftime('%A, %B %d, %Y')
             eventEndTime = eventEndDateTimeUTC["time"]
 
-            eventRegistrationCode = data["eventRegistrationCode"]
-            eventCheckinCode = (data["eventCheckinCode"])
+            eventRegistrationCode = data["event_registration_code"]
+            eventCheckinCode = (data["event_checkin_code"])
 
             for e in range(len(recipient)):
                 text_msg = (subject + "\n" +
