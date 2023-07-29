@@ -1073,6 +1073,27 @@ class EventUser(Resource):
         finally:
             disconnect(conn)
 
+    def delete(self):
+        response = {}
+        try:
+            conn = connect()
+            args = request.args
+            event_uid = args["eventId"]
+            user_uid = args['userId']
+
+            query = ("""
+                     DELETE FROM find_me.event_user 
+                     WHERE eu_event_id = \'""" + event_uid + """\' 
+                     AND eu_user_id = \'""" + user_uid + """\';
+                     """)
+            execute(query, "post", conn)
+            response["message"] = "Deleted Successfully"
+            return response
+        except Exception as e:
+            raise BadRequest("Request failed, please try again later.") from e
+        finally:
+            disconnect(conn)
+
 
 class GetEventUser(Resource):
     def get(self):
