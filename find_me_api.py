@@ -17,6 +17,7 @@ import uuid
 import boto3
 import json
 import math
+import heapq
 import httplib2
 
 from botocore.response import StreamingBody
@@ -1399,19 +1400,13 @@ class NetworkingGraph(Resource):
     def get(self):
         response = {}
         helper_map = {
-            "Founder": ["Founder", "Looking for Next Opportunity"],
-            "VC": ["VC"],
-            "Looking for Next Opportunity": ["Looking for Next Opportunity"],
-        }
-        needer_map = {
-            "Founder": ["VC"],
-            "VC": ["Founder"],
-            "Looking for Next Opportunity": ["Founder", "VC"],
+            "Founder": ["Founder", "VC", "Looking for Next Opportunity"],
+            "VC": ["Founder", "VC", "Looking for Next Opportunity"],
+            "Looking for Next Opportunity": ["Founder", "Looking for Next Opportunity"],
         }
         try:
             args = request.args
             event_id = args["eventId"]
-            user_id = args["userId"]
             query = (
                 """
                 SELECT user_uid, first_name, last_name, role, images
@@ -1427,48 +1422,198 @@ class NetworkingGraph(Resource):
             )
             conn = connect()
             query_result = execute(query, "get", conn)["result"]
-            user_group = []
-            user = {}
-            for idx, value in enumerate(query_result):
-                if user_id == value["user_uid"]:
-                    user = query_result.pop(idx)
-                    user_group.append(user)
-            needer_roles = set()
-            for role in user["role"].split(", "):
-                needer_roles.update(needer_map[role])
-            needers = []
-            for needer_user in query_result:
-                if any(role in needer_roles for role in needer_user["role"].split(", ")) and len(user_group) < 6:
-                    user_group.append(needer_user)
-                    needers.append({
-                        "from": user["user_uid"],
-                        "to": needer_user["user_uid"],
-                    })
-                    if any(role in helper_map[role] for role in needer_user["role"].split(", ")):
-                        needers.append({
-                            "from": needer_user["user_uid"],
-                            "to": user["user_uid"],
-                        })
+
+            # Finding connections for each user
+            user_groups = {}
+            for idx in range(len(query_result)):
+                users = query_result.copy()
+                center_user = users.pop(idx)
+                user_group = {}
+                user_group["inward_links"] = 0
+                user_group["link_count"] = 0
+                user_group["origin"] = center_user
+                user_group["link_uids"] = []
+                if center_user["user_uid"] in user_groups.keys():
+                    user_group = user_groups[center_user["user_uid"]]
+                user_group["outward_links"] = 0
+                helped_roles = helper_map[center_user["role"]]
+                for user in users:
+                    if user["role"] in helped_roles and user_group["outward_links"]<6 and user_group["link_count"] < 6 :
+                        is_inward = False
+                        if user["user_uid"] in list(user_groups.keys()):
+                            other_user_group = user_groups[user["user_uid"]]
+                            if other_user_group["link_count"] >= 6 and center_user["user_uid"] not in other_user_group["link_uids"] or other_user_group["origin"]["user_uid"] == center_user["user_uid"] or other_user_group["inward_links"]>=6:
+                                continue
+                        if user["user_uid"] in list(user_group.keys()):
+                            user_group[user["user_uid"]]["is_outward"] = True
+                        else:
+                            user_group[user["user_uid"]] = {
+                                **user,
+                                "is_outward" : True,
+                            }
+                            receiver_roles = helper_map[user["role"]]
+                            if center_user["role"] in receiver_roles and not user_group[user["user_uid"]].get("is_inward"):
+                                is_inward = True
+                                user_group[user["user_uid"]]["is_inward"] = True
+                                # user_group["inward_links"] = user_group["inward_links"] + 1
+                            user_group["link_count"] = user_group["link_count"] + 1
+                            user_group["link_uids"].append(user["user_uid"])
+                        user_group["outward_links"] = user_group["outward_links"] + 1
+                        if user["user_uid"] in list(user_groups.keys()):
+                            other_user_group = user_groups[user["user_uid"]]
+                            if center_user["user_uid"] in other_user_group.keys():
+                                other_user_group[center_user["user_uid"]]["is_inward"] = True
+                            else:
+                                other_user_group[center_user["user_uid"]] = {
+                                    **center_user,
+                                    "is_inward" : True,
+                                }
+                                if is_inward:
+                                    other_user_group[center_user["user_uid"]]["is_outward"] = True
+                                    # other_user_group["outward_links"] = other_user_group["outward_links"] + 1
+                                other_user_group["link_count"] = other_user_group["link_count"] + 1
+                                other_user_group["link_uids"].append(center_user["user_uid"])
+                            other_user_group["inward_links"] = other_user_group["inward_links"] + 1
+                        else:
+                            other_user_group = {
+                                center_user["user_uid"]:{
+                                    **center_user,
+                                    "is_inward" : True,
+                                },
+                                "inward_links": 1,
+                                "outward_links": 0,
+                                "link_count": 1,
+                                "origin": user,
+                                "link_uids": [center_user["user_uid"]]
+                            }
+                            if is_inward:
+                                other_user_group[center_user["user_uid"]]["is_outward"] = True
+                                other_user_group["outward_links"] = other_user_group["outward_links"] + 1
+                            user_groups[user["user_uid"]] = other_user_group
+                user_groups[center_user["user_uid"]] = user_group
+
+            #Minimize the deviation of user group link count
+            #Sort the user groups based on the number of linked users
+            key_func = lambda ug:ug[1]["link_count"]
+            ugs_to_sort = {k:v for k,v in user_groups.items() if k not in ["initial_std_dev"]}
+            sorted_user_groups_list = sorted(ugs_to_sort.items(), key=key_func)
+            sorted_user_groups_list_rev = sorted(ugs_to_sort.items(), key=key_func, reverse=True)
+            sorted_user_groups = {ug[0]: ug for ug in sorted_user_groups_list}
+            sorted_user_groups_rev = {ug[0]: ug for ug in sorted_user_groups_list_rev}
+            links_count_list = []
+            for curr_user_group in sorted_user_groups.values():
+                links_count_list.append(curr_user_group[1]["link_count"])
+            prev_std_dev = np.std(links_count_list)
+            user_groups["initial_std_dev"] = prev_std_dev
+            if True:
+                for idx_low, user_group_low_id in enumerate(sorted_user_groups):
+                    for idx_high, user_group_high_id in enumerate(sorted_user_groups_rev):
+                        if idx_high == len(sorted_user_groups)-idx_low-1:
+                            break
+                        user_group_low = user_groups[user_group_low_id]
+                        user_group_high = user_groups[user_group_high_id]
+                        user_to_link_to = user_group_low["origin"]
+                        users_linked_to_high = [user_group_high[user_uid] for user_uid in user_group_high["link_uids"]]
+                        is_moved_outward = False
+                        is_moved_inward = False
+                        heap_list = []
+                        heapq.heapify(heap_list)
+                        for user_linked_to_high in users_linked_to_high:
+                            if user_linked_to_high["user_uid"] in user_group_low["link_uids"]:
+                                continue
+                            if user_to_link_to["user_uid"] != user_linked_to_high["user_uid"] and user_linked_to_high["user_uid"] not in user_group_low["link_uids"]:
+                                helped_roles = helper_map[user_to_link_to["role"]]
+                                if user_linked_to_high["role"] in helped_roles and len(user_group_low["link_uids"]) < 6:
+                                    is_moved_outward = True
+                                helped_roles = helper_map[user_linked_to_high["role"]]
+                                if user_to_link_to["role"] in helped_roles and len(user_group_low["link_uids"]) < 6:
+                                    is_moved_inward = True
+                            if is_moved_outward or is_moved_inward:
+                                new_links_counts_list = []
+                                for idx, count in enumerate(links_count_list):
+                                    if idx_low == idx:
+                                        new_links_counts_list.append(count+1)
+                                    elif len(sorted_user_groups)-idx_high-1 == idx:
+                                        new_links_counts_list.append(count-1)
+                                    else:
+                                        new_links_counts_list.append(count)
+                                next_std_dev = np.std(new_links_counts_list)
+                                if next_std_dev < prev_std_dev:
+                                    low_priority = 3
+                                    if is_moved_outward and is_moved_inward:
+                                        low_priority = 1
+                                    elif is_moved_inward:
+                                        low_priority = 2
+                                    high_priority = 1
+                                    if user_linked_to_high.get("is_outward") and user_linked_to_high.get("is_inward"):
+                                        high_priority = 3
+                                    elif user_linked_to_high.get("is_inward"):
+                                        high_priority = 2
+                                    heapq.heappush(heap_list, (
+                                        high_priority,
+                                        low_priority, 
+                                        next_std_dev, 
+                                        new_links_counts_list, 
+                                        user_linked_to_high["user_uid"] 
+                                    ))
+                                    # prev_std_dev = next_std_dev
+                                    # user_group_low[user_linked_to_high["user_uid"]] = {
+                                    #     **user_linked_to_high,
+                                    #     "is_outward" : is_moved_outward,
+                                    #     "is_inward" : is_moved_inward,
+                                    # }
+                                    # user_group_low["link_uids"].append(user_linked_to_high["user_uid"])
+                                    # user_group_low["link_count"] = user_group_low["link_count"] + 1
+                                    # del user_group_high[user_linked_to_high["user_uid"]]
+                                    # user_group_high["link_uids"].remove(user_linked_to_high["user_uid"])
+                                    # user_group_high["link_count"] = user_group_high["link_count"] - 1
+                                    # user_groups[user_group_low_id] = user_group_low
+                                    # user_groups[user_group_high_id] = user_group_high
+                                    # links_count_list = new_links_counts_list
                         
-            helper_roles = set()
-            for role in user["role"].split(", "):
-                helper_roles.update(helper_map[role])
-            helpers = []
-            for helper_user in query_result:
-                if any(role in helper_roles for role in helper_user["role"].split(", ")) and len(user_group) < 6:
-                    user_group.append(helper_user)
-                    helpers.append({
-                        "from": helper_user["user_uid"],
-                        "to": user["user_uid"],
-                    })
-                    if any(role in needer_map[role] for role in helper_user["role"].split(", ")):
-                        helpers.append({
-                            "from": user["user_uid"],
-                            "to": helper_user["user_uid"],
-                        })
+                        if len(heap_list) > 0:
+                            user_to_remove_tuple = heapq.heappop(heap_list)
+                            high_priority = user_to_remove_tuple[0]
+                            low_priority = user_to_remove_tuple[1]
+                            next_std_dev = user_to_remove_tuple[2]
+                            prev_std_dev = next_std_dev
+                            new_links_counts_list = user_to_remove_tuple[3]
+                            user_linked_to_high = user_group_high[user_to_remove_tuple[4]]
+                            user_group_low[user_linked_to_high["user_uid"]] = {
+                                **user_linked_to_high,
+                                "is_outward" : low_priority == 2 or low_priority == 3,
+                                "is_inward" : low_priority == 1 or low_priority == 3,
+                            }
+                            if low_priority == 1 or low_priority == 3:
+                                user_group_low["inward_links"] = user_group_low["inward_links"] + 1
+                            if low_priority == 2 or low_priority == 3:
+                                user_group_low["outward_links"] = user_group_low["outward_links"] + 1
+                            if high_priority == 2 or high_priority == 1:
+                                user_group_high["inward_links"] = user_group_high["inward_links"] - 1
+                            if high_priority == 3 or high_priority == 1:
+                                user_group_high["outward_links"] = user_group_high["outward_links"] - 1
+                            user_group_low["link_uids"].append(user_linked_to_high["user_uid"])
+                            user_group_low["link_count"] = user_group_low["link_count"] + 1
+                            del user_group_high[user_linked_to_high["user_uid"]]
+                            user_group_high["link_uids"].remove(user_linked_to_high["user_uid"])
+                            user_group_high["link_count"] = user_group_high["link_count"] - 1
+                            user_groups[user_group_low_id] = user_group_low
+                            user_groups[user_group_high_id] = user_group_high
+                            links_count_list = new_links_counts_list
+            summary = {}
+            for key, value in user_groups.items():
+                if key != "initial_std_dev":
+                    summary[key] = {
+                        "inward_links": value["inward_links"],
+                        "outward_links": value["outward_links"],
+                        "total_links": value["link_count"],
+                    }
+            response["summary"] = summary
+            user_groups["final_std_dev"] = prev_std_dev
+            user_groups["link_counts"] = links_count_list
             response["message"] = "successful"
-            response["users"] = user_group
-            response["links"] = helpers + needers
+            response["user_groups"] = user_groups
+            response["users"] = query_result
         except Exception as e:
             raise InternalServerError("An unknown error occured.") from e
         finally:
