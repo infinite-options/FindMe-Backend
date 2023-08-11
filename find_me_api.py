@@ -1003,11 +1003,15 @@ class EventUser(Resource):
             eu_event_id = event['eu_event_id']
             eu_qas = event['eu_qas']
 
-            query0 = ("""SELECT IF(event_capacity = 'No Limit' OR 
-                      COUNT(event_user_uid) < CAST(event_capacity AS UNSIGNED), '1', '0') AS event_limit 
-                      FROM find_me.events INNER JOIN find_me.event_user 
-                      ON eu_event_id = event_uid 
-                      WHERE event_uid = \'""" + eu_event_id + """\';
+            query0 = ("""WITH event_registrants AS (
+                            SELECT COUNT(*) AS registrants, eu_event_id 
+                            FROM find_me.event_user WHERE eu_event_id = \'""" + eu_event_id + """\'
+                        )
+                        SELECT IF(event_capacity = 'No Limit' OR
+                        registrants < CAST(event_capacity AS UNSIGNED), '1', '0') AS event_limit
+                        FROM find_me.events INNER JOIN event_registrants
+                        ON eu_event_id = event_uid OR eu_event_id IS NULL
+                        WHERE event_uid = \'""" + eu_event_id + """\';
                         """)
             items0 = execute(query0, "get", conn)["result"]
             if items0[0]["event_limit"] == "0":
