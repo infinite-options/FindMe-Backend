@@ -16,6 +16,7 @@ import os
 import uuid
 import boto3
 import json
+import urllib.parse
 import math
 import heapq
 import httplib2
@@ -57,6 +58,7 @@ import numpy as np
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 
+from gensim.models import KeyedVectors
 #  NEED TO SOLVE THIS
 # from NotificationHub import Notification
 # from NotificationHub import NotificationHub
@@ -488,10 +490,74 @@ def eventListIterator(items, user_timezone):
             event["event_end_date"] = local_end_datetime["date"]
             event["event_end_time"] = local_end_datetime["time"]
     return items
+def cosine_similarity(v1, v2):
+    """Calculate cosine similarity between two vectors."""
+    dot_product = np.dot(v1, v2)
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+    return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
+
+def cosine_algorithm(users):
+    """Calculate cosine similarity between answers of users."""
+    glove_path = "./glove.6B.50d.txt"
+    kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
+
+    user_vectors = {}
+    for user_name, user_data in users.items():
+        answer_vectors = []
+        for qa_pair in user_data['qas']:
+            answer = qa_pair['answer']
+            tokens = answer.lower().split()
+            word_vectors = [kv.get_vector(token) if token in kv.key_to_index else np.zeros(kv.vector_size) for token in tokens]
+            answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(kv.vector_size)
+            answer_vectors.append(answer_vector)
+        user_vectors[user_name] = answer_vectors
+
+    similarity_scores = {}
+    for user1, answers1 in user_vectors.items():
+        for user2, answers2 in user_vectors.items():
+            if user1 != user2 :
+                similarities = []
+                for ans1, ans2 in zip(answers1, answers2):
+                    similarity = cosine_similarity(ans1, ans2)
+                    similarities.append(similarity)
+                avg_similarity = np.mean(similarities) if similarities else 0
+                similarity_scores[(user1, user2)] = avg_similarity
+
+    top_matches = {}
+    for user1 in user_vectors.keys():
+        top_matches[user1] = []
+        for user2 in user_vectors.keys():
+            if user1 != user2:
+                score = similarity_scores.get((user1, user2), 0)
+                if len(top_matches[user1]) < 3 or score > min([s for _, s in top_matches[user1]]):
+                    top_matches[user1] = [[user2, score]] + [m for m in top_matches[user1] if m[1] > score][:2]
+
+    return top_matches
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
-
+# {'a1': {
+#     'user_uid': '100-000077', 
+#     'images': '["https://s3-us-west-1.amazonaws.com/io-find-me/user/100-000077/img_cover"]',
+#     'qas': [{'id': 1, 'question': 'What Are you really good at?', 'answer': 'swimming'}], 
+#     'first_name': 'a1', 
+#     'last_name': ''}, 
+#   'a3': {
+#     'user_uid': '100-000080',
+#     'images': '["https://s3-us-west-1.amazonaws.com/io-find-me/user/100-000080/img_cover"]',
+#     'qas': [{'id': 1, 'question': 'What Are you really good at?', 'answer': 'surfing'}], 
+#     'first_name': 'a3', 
+#     'last_name': ''
+#     },
+#   'a2': {
+#     'user_uid': '100-000081',
+#     'images': '["https://s3-us-west-1.amazonaws.com/io-find-me/user/100-000080/img_cover"]',
+#     'qas': [{'id': 1, 'question': 'What Are you really good at?', 'answer': 'running'}], 
+#     'first_name': 'a2', 
+#     'last_name': ''
+#     }
+# }
 # RUN STORED PROCEDURES
 
 
@@ -1399,7 +1465,14 @@ class VerifyRegCode(Resource):
         finally:
             disconnect(conn)
 
-
+class AlgorithmGraph(Resource):
+    def get(self):
+        encoded_string=request.args.get('EventUsers')    
+        decoded_string = urllib.parse.unquote(encoded_string)
+        decoded_json_dict=json.loads(decoded_string)
+        result=cosine_algorithm(decoded_json_dict)
+        # print("argument: ",decoded_json_dict)
+        return str(result),200
 class NetworkingGraph(Resource):
     def get(self):
         response = {}
@@ -2403,6 +2476,7 @@ api.add_resource(EventsByAddress, '/api/v2/EventsByAddress')
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
 # arrive at event endpoints
+api.add_resource(AlgorithmGraph, "/api/v2/algorithmgraph")
 api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
 api.add_resource(OverallGraph, "/api/v2/overallGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
