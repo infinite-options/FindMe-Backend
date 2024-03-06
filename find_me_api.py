@@ -497,9 +497,7 @@ def cosine_similarity(v1, v2):
     norm_v2 = np.linalg.norm(v2)
     return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
-
 def cosine_algorithm(users):
-    """Calculate cosine similarity between answers of users."""
     glove_path = "./glove.6B.50d.txt"
     kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
 
@@ -531,10 +529,18 @@ def cosine_algorithm(users):
         for user2 in user_vectors.keys():
             if user1 != user2:
                 score = similarity_scores.get((user1, user2), 0)
-                if len(top_matches[user1]) < 3 or score > min([s for _, s in top_matches[user1]]):
-                    top_matches[user1] = [[user2, score]] + [m for m in top_matches[user1] if m[1] > score][:2]
+                if len(top_matches[user1]) < 3 or score > min([s['score'] for s in top_matches[user1]]):
+                    top_matches[user1].append({'from': user1, 'to': user2, 'score': score})
+                    top_matches[user1].sort(key=lambda x: x['score'], reverse=True)
+                    if len(top_matches[user1]) > 3:
+                        top_matches[user1].pop()
 
-    return top_matches
+    # Change key from name to ID
+    id_matches = {}
+    for name, matches in top_matches.items():
+        id_matches[users[name]['user_uid']] = matches
+
+    return id_matches
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
 # {'a1': {
