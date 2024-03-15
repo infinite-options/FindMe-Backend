@@ -1490,19 +1490,35 @@ class NetworkingGraph(Resource):
         try:
             args = request.args
             event_id = args["eventId"]
-            query = (
+            registrant = args.get("registrant",False)
+            query=""
+            if(registrant):
+                query = (
                 """
                 SELECT user_uid, first_name, last_name, role, images
                 FROM find_me.users u INNER JOIN find_me.event_user eu 
                     ON u.user_uid = eu.eu_user_id
                     INNER JOIN find_me.profile_user pu 
                     ON u.user_uid = pu.profile_user_id
-                WHERE eu.eu_attend = 1 
-                AND eu.eu_event_id = \'"""
+                WHERE eu.eu_event_id = \'"""
                 + event_id
                 + """\';
                 """
             )
+            else:
+                query = (
+                    """
+                    SELECT user_uid, first_name, last_name, role, images
+                    FROM find_me.users u INNER JOIN find_me.event_user eu 
+                        ON u.user_uid = eu.eu_user_id
+                        INNER JOIN find_me.profile_user pu 
+                        ON u.user_uid = pu.profile_user_id
+                    WHERE eu.eu_attend = 1 
+                    AND eu.eu_event_id = \'"""
+                    + event_id
+                    + """\';
+                    """
+                )
             conn = connect()
             query_result = execute(query, "get", conn)["result"]
 
