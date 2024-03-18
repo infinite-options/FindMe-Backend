@@ -491,13 +491,13 @@ def eventListIterator(items, user_timezone):
             event["event_end_time"] = local_end_datetime["time"]
     return items
 def cosine_similarity(v1, v2):
-    """Calculate cosine similarity between two vectors."""
     dot_product = np.dot(v1, v2)
     norm_v1 = np.linalg.norm(v1)
     norm_v2 = np.linalg.norm(v2)
     return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
 def cosine_algorithm(users):
+
     glove_path = "./glove.6B.50d.txt"
     kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
 
@@ -535,7 +535,7 @@ def cosine_algorithm(users):
                     if len(top_matches[user1]) > 3:
                         top_matches[user1].pop()
 
-    # Change key from name to ID
+    #store user id as key
     id_matches = {}
     for name, matches in top_matches.items():
         id_matches[users[name]['user_uid']] = matches
@@ -543,27 +543,6 @@ def cosine_algorithm(users):
     return id_matches
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
-# {'a1': {
-#     'user_uid': '100-000077', 
-#     'images': '["https://s3-us-west-1.amazonaws.com/io-find-me/user/100-000077/img_cover"]',
-#     'qas': [{'id': 1, 'question': 'What Are you really good at?', 'answer': 'swimming'}], 
-#     'first_name': 'a1', 
-#     'last_name': ''}, 
-#   'a3': {
-#     'user_uid': '100-000080',
-#     'images': '["https://s3-us-west-1.amazonaws.com/io-find-me/user/100-000080/img_cover"]',
-#     'qas': [{'id': 1, 'question': 'What Are you really good at?', 'answer': 'surfing'}], 
-#     'first_name': 'a3', 
-#     'last_name': ''
-#     },
-#   'a2': {
-#     'user_uid': '100-000081',
-#     'images': '["https://s3-us-west-1.amazonaws.com/io-find-me/user/100-000080/img_cover"]',
-#     'qas': [{'id': 1, 'question': 'What Are you really good at?', 'answer': 'running'}], 
-#     'first_name': 'a2', 
-#     'last_name': ''
-#     }
-# }
 # RUN STORED PROCEDURES
 
 
