@@ -16,6 +16,7 @@ import os
 import uuid
 import boto3
 import json
+import urllib.parse
 import math
 import heapq
 import httplib2
@@ -38,6 +39,7 @@ from flask_cors import CORS
 from flask_mail import Mail, Message
 
 from collections import OrderedDict, Counter
+from dotenv import load_dotenv
 
 # used for serializer email and error handling
 # from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
@@ -57,6 +59,7 @@ import numpy as np
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 
+from gensim.models import KeyedVectors
 #  NEED TO SOLVE THIS
 # from NotificationHub import Notification
 # from NotificationHub import NotificationHub
@@ -88,6 +91,8 @@ import json
 import pytz
 import pymysql
 import requests
+
+import tempfile
 
 RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
 RDS_PORT = 3306
@@ -488,9 +493,73 @@ def eventListIterator(items, user_timezone):
             event["event_end_date"] = local_end_datetime["date"]
             event["event_end_time"] = local_end_datetime["time"]
     return items
+def cosine_similarity(v1, v2):
+    dot_product = np.dot(v1, v2)
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+    return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
+def cosine_algorithm(users):
+    load_dotenv()
+    s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
+    s3_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    s3_bucket_name = os.getenv('BUCKET_NAME')
+    s3_file_key = os.getenv('S3_PATH_KEY')
+
+    s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
+
+    response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
+    file_content = response['Body'].read().decode('utf-8')
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
+        tmp_file.write(file_content)
+    kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    tmp_file.close()
+    os.unlink(tmp_file.name)
+
+    # glove_path = "https://find-me-cosine.s3.us-west-1.amazonaws.com/glove.6B.50d.txt"
+    # kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
+    print("kv variable",kv)
+    user_vectors = {}
+    for user_name, user_data in users.items():
+        answer_vectors = []
+        for qa_pair in user_data['qas']:
+            answer = qa_pair['answer']
+            tokens = answer.lower().split()
+            word_vectors = [kv.get_vector(token) if token in kv.key_to_index else np.zeros(kv.vector_size) for token in tokens]
+            answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(kv.vector_size)
+            answer_vectors.append(answer_vector)
+        user_vectors[user_name] = answer_vectors
+
+    similarity_scores = {}
+    for user1, answers1 in user_vectors.items():
+        for user2, answers2 in user_vectors.items():
+            if user1 != user2 :
+                similarities = []
+                for ans1, ans2 in zip(answers1, answers2):
+                    similarity = cosine_similarity(ans1, ans2)
+                    similarities.append(similarity)
+                avg_similarity = np.mean(similarities) if similarities else 0
+                similarity_scores[(user1, user2)] = avg_similarity
+
+    top_matches = {}
+    for user1 in user_vectors.keys():
+        top_matches[user1] = []
+        for user2 in user_vectors.keys():
+            if user1 != user2:
+                score = similarity_scores.get((user1, user2), 0)
+                if len(top_matches[user1]) < 3 or score > min([s['score'] for s in top_matches[user1]]):
+                    top_matches[user1].append({'from': user1, 'to': user2, 'score': score})
+                    top_matches[user1].sort(key=lambda x: x['score'], reverse=True)
+                    if len(top_matches[user1]) > 3:
+                        top_matches[user1].pop()
+
+    #store user id as key
+    id_matches = {}
+    for name, matches in top_matches.items():
+        id_matches[users[name]['user_uid']] = matches
+
+    return id_matches
 # -- Stored Procedures start here -------------------------------------------------------------------------------
-
 
 # RUN STORED PROCEDURES
 
@@ -1399,7 +1468,14 @@ class VerifyRegCode(Resource):
         finally:
             disconnect(conn)
 
-
+class AlgorithmGraph(Resource):
+    def get(self):
+        encoded_string=request.args.get('EventUsers')    
+        decoded_string = urllib.parse.unquote(encoded_string)
+        decoded_json_dict=json.loads(decoded_string)
+        result=cosine_algorithm(decoded_json_dict)
+        # print("argument: ",decoded_json_dict)
+        return str(result),200
 class NetworkingGraph(Resource):
     def get(self):
         response = {}
@@ -1411,19 +1487,35 @@ class NetworkingGraph(Resource):
         try:
             args = request.args
             event_id = args["eventId"]
-            query = (
+            registrant = args.get("registrant",False)
+            query=""
+            if(registrant):
+                query = (
                 """
                 SELECT user_uid, first_name, last_name, role, images
                 FROM find_me.users u INNER JOIN find_me.event_user eu 
                     ON u.user_uid = eu.eu_user_id
                     INNER JOIN find_me.profile_user pu 
                     ON u.user_uid = pu.profile_user_id
-                WHERE eu.eu_attend = 1 
-                AND eu.eu_event_id = \'"""
+                WHERE eu.eu_event_id = \'"""
                 + event_id
                 + """\';
                 """
             )
+            else:
+                query = (
+                    """
+                    SELECT user_uid, first_name, last_name, role, images
+                    FROM find_me.users u INNER JOIN find_me.event_user eu 
+                        ON u.user_uid = eu.eu_user_id
+                        INNER JOIN find_me.profile_user pu 
+                        ON u.user_uid = pu.profile_user_id
+                    WHERE eu.eu_attend = 1 
+                    AND eu.eu_event_id = \'"""
+                    + event_id
+                    + """\';
+                    """
+                )
             conn = connect()
             query_result = execute(query, "get", conn)["result"]
 
@@ -2403,6 +2495,7 @@ api.add_resource(EventsByAddress, '/api/v2/EventsByAddress')
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
 # arrive at event endpoints
+api.add_resource(AlgorithmGraph, "/api/v2/algorithmgraph")
 api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
 api.add_resource(OverallGraph, "/api/v2/overallGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
