@@ -39,6 +39,7 @@ from flask_cors import CORS
 from flask_mail import Mail, Message
 
 from collections import OrderedDict, Counter
+from dotenv import load_dotenv
 
 # used for serializer email and error handling
 # from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
@@ -90,6 +91,8 @@ import json
 import pytz
 import pymysql
 import requests
+
+import tempfile
 
 RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
 RDS_PORT = 3306
@@ -497,10 +500,25 @@ def cosine_similarity(v1, v2):
     return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
 def cosine_algorithm(users):
+    load_dotenv()
+    s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
+    s3_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    s3_bucket_name = os.getenv('BUCKET_NAME')
+    s3_file_key = os.getenv('S3_PATH_KEY')
 
-    glove_path = "./glove.6B.50d.txt"
-    kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
+    s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
 
+    response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
+    file_content = response['Body'].read().decode('utf-8')
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
+        tmp_file.write(file_content)
+    kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    tmp_file.close()
+    os.unlink(tmp_file.name)
+
+    # glove_path = "https://find-me-cosine.s3.us-west-1.amazonaws.com/glove.6B.50d.txt"
+    # kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
+    print("kv variable",kv)
     user_vectors = {}
     for user_name, user_data in users.items():
         answer_vectors = []
