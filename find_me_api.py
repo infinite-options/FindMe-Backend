@@ -500,7 +500,7 @@ def cosine_similarity(v1, v2):
     return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
 def cosine_algorithm(users):
-    print("INSIDE COSINE ENDPOINT")
+    print("INSIDE COSINE FUNCTION CALL")
     # load_dotenv()
     s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
     s3_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
@@ -1474,10 +1474,12 @@ class VerifyRegCode(Resource):
 
 class AlgorithmGraph(Resource):
     def get(self):
+        print("INSIDE ALGORITHM ENDPOINT")
         encoded_string=request.args.get('EventUsers')    
         decoded_string = urllib.parse.unquote(encoded_string)
         decoded_json_dict=json.loads(decoded_string)
         result=cosine_algorithm(decoded_json_dict)
+        print("END OF ALGORITHM ENDPOINT")
         # print("argument: ",decoded_json_dict)
         return str(result),200
 class NetworkingGraph(Resource):
