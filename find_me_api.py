@@ -508,8 +508,8 @@ def cosine_algorithm(users):
     s3_file_key = os.getenv('S3_PATH_KEY')
 
     s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
-    print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:],"Bucket:",s3_bucket_name[:3],s3_bucket_name[-3:],"file path:",s3_file_key[:3],s3_file_key[-3:])
-
+    print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:])
+    print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
     file_content = response['Body'].read().decode('utf-8')
     print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
