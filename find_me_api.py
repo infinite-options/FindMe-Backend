@@ -500,22 +500,25 @@ def cosine_similarity(v1, v2):
     return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
 def cosine_algorithm(users):
-    load_dotenv()
+    print("INSIDE COSINE ENDPOINT")
+    # load_dotenv()
     s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
     s3_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     s3_bucket_name = os.getenv('BUCKET_NAME')
     s3_file_key = os.getenv('S3_PATH_KEY')
 
     s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
-
+    print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:])
+    print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
     file_content = response['Body'].read().decode('utf-8')
+    print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
     with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
         tmp_file.write(file_content)
     kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
     tmp_file.close()
     os.unlink(tmp_file.name)
-
+    print("LOADED THE S3 CONTENT")
     # glove_path = "https://find-me-cosine.s3.us-west-1.amazonaws.com/glove.6B.50d.txt"
     # kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
     print("kv variable",kv)
@@ -557,8 +560,9 @@ def cosine_algorithm(users):
     id_matches = {}
     for name, matches in top_matches.items():
         id_matches[users[name]['user_uid']] = matches
-
+    print("END OF COSINE ENDPOINT")
     return id_matches
+
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
 # RUN STORED PROCEDURES
