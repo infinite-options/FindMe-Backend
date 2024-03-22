@@ -500,96 +500,107 @@ def cosine_similarity(v1, v2):
     return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
 def cosine_algorithm(users):
-    try:
-        print("INSIDE COSINE FUNCTION CALL")
-        # load_dotenv()
-        try:
-            s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
-        except:
-            print("error in s3 access key")
-        try:
-            s3_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-        except:
-            print("error in secret key")
-        try:
-            s3_bucket_name = os.getenv('BUCKET_NAME')
-        except:
-            print("error in bucket name")
-        try:
-            s3_file_key = os.getenv('S3_PATH_KEY')
-        except:
-            print("error in file key")
-        # s3_access_key = ""
-        # s3_secret_key = ""
-        # s3_bucket_name = ""
-        # s3_file_key = ""
-        try:
-            s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
-        except:
-            print("error in s3_client connection")
-        print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:])
-        print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
-        try:
-            response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
-        except:
-            print("error in response of s3 client")
-        try:
-            file_content = response['Body'].read().decode('utf-8')
-        except:
-            print("error in decoding response")
-        print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
-            tmp_file.write(file_content)
-        kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
-        tmp_file.close()
-        os.unlink(tmp_file.name)
-        print("LOADED THE S3 CONTENT")
-        # glove_path = "https://find-me-cosine.s3.us-west-1.amazonaws.com/glove.6B.50d.txt"
-        # kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
-        print("kv variable",kv)
-        user_vectors = {}
-        for user_name, user_data in users.items():
-            answer_vectors = []
-            for qa_pair in user_data['qas']:
-                answer = qa_pair['answer']
-                tokens = answer.lower().split()
-                word_vectors = [kv.get_vector(token) if token in kv.key_to_index else np.zeros(kv.vector_size) for token in tokens]
-                answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(kv.vector_size)
-                answer_vectors.append(answer_vector)
-            user_vectors[user_name] = answer_vectors
+    
+    print("INSIDE COSINE FUNCTION CALL")
+    # load_dotenv()
+    # try:
+    #     s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
+    # except:
+    #     print("error in s3 access key")
+    # try:
+    #     s3_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    # except:
+    #     print("error in secret key")
+    # try:
+    #     s3_bucket_name = os.getenv('BUCKET_NAME')
+    # except:
+    #     print("error in bucket name")
+    # try:
+    #     s3_file_key = os.getenv('S3_PATH_KEY')
+    # except:
+    #     print("error in file key")
+    # s3_access_key = ""
+    # s3_secret_key = ""
+    # s3_bucket_name = ""
+    # s3_file_key = ""
+    # try:
+    #     s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
+    # except:
+    #     print("error in s3_client connection")
+    # print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:])
+    # print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
+    # try:
+    #     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
+    # except:
+    #     print("error in response of s3 client")
+    # try:
+    #     file_content = response['Body'].read().decode('utf-8')
+    # except:
+    #     print("error in decoding response")
+    # print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
+    # with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
+    #     tmp_file.write(file_content)
+    # kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    # tmp_file.close()
+    # os.unlink(tmp_file.name)
+    bucket='find-me-cosine'
+    key='glove.6B.50d.txt'
+    data = s3.get_object(
+        Bucket=bucket,
+        Key=key
+    )
+    file_content = data['Body'].read().decode('utf-8')
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
+        tmp_file.write(file_content)
+    kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    tmp_file.close()
+    os.unlink(tmp_file.name)
+    print("LOADED THE S3 CONTENT")
+    # glove_path = "https://find-me-cosine.s3.us-west-1.amazonaws.com/glove.6B.50d.txt"
+    # kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
+    # print("kv variable",kv)
 
-        similarity_scores = {}
-        for user1, answers1 in user_vectors.items():
-            for user2, answers2 in user_vectors.items():
-                if user1 != user2 :
-                    similarities = []
-                    for ans1, ans2 in zip(answers1, answers2):
-                        similarity = cosine_similarity(ans1, ans2)
-                        similarities.append(similarity)
-                    avg_similarity = np.mean(similarities) if similarities else 0
-                    similarity_scores[(user1, user2)] = avg_similarity
+    user_vectors = {}
+    for user_name, user_data in users.items():
+        answer_vectors = []
+        for qa_pair in user_data['qas']:
+            answer = qa_pair['answer']
+            tokens = answer.lower().split()
+            word_vectors = [kv.get_vector(token) if token in kv.key_to_index else np.zeros(kv.vector_size) for token in tokens]
+            answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(kv.vector_size)
+            answer_vectors.append(answer_vector)
+        user_vectors[user_name] = answer_vectors
 
-        top_matches = {}
-        for user1 in user_vectors.keys():
-            top_matches[user1] = []
-            for user2 in user_vectors.keys():
-                if user1 != user2:
-                    score = similarity_scores.get((user1, user2), 0)
-                    if len(top_matches[user1]) < 3 or score > min([s['score'] for s in top_matches[user1]]):
-                        top_matches[user1].append({'from': user1, 'to': user2, 'score': score})
-                        top_matches[user1].sort(key=lambda x: x['score'], reverse=True)
-                        if len(top_matches[user1]) > 3:
-                            top_matches[user1].pop()
+    similarity_scores = {}
+    for user1, answers1 in user_vectors.items():
+        for user2, answers2 in user_vectors.items():
+            if user1 != user2 :
+                similarities = []
+                for ans1, ans2 in zip(answers1, answers2):
+                    similarity = cosine_similarity(ans1, ans2)
+                    similarities.append(similarity)
+                avg_similarity = np.mean(similarities) if similarities else 0
+                similarity_scores[(user1, user2)] = avg_similarity
 
-        #store user id as key
-        id_matches = {}
-        for name, matches in top_matches.items():
-            id_matches[users[name]['user_uid']] = matches
-        print("END OF COSINE ENDPOINT")
-        return id_matches
-    except:
-        print("error in algorithm graph endpoint")
-        return []
+    top_matches = {}
+    for user1 in user_vectors.keys():
+        top_matches[user1] = []
+        for user2 in user_vectors.keys():
+            if user1 != user2:
+                score = similarity_scores.get((user1, user2), 0)
+                if len(top_matches[user1]) < 3 or score > min([s['score'] for s in top_matches[user1]]):
+                    top_matches[user1].append({'from': user1, 'to': user2, 'score': score})
+                    top_matches[user1].sort(key=lambda x: x['score'], reverse=True)
+                    if len(top_matches[user1]) > 3:
+                        top_matches[user1].pop()
+
+    #store user id as key
+    id_matches = {}
+    for name, matches in top_matches.items():
+        id_matches[users[name]['user_uid']] = matches
+    print("END OF COSINE ENDPOINT")
+    return id_matches
+
 
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
