@@ -493,6 +493,44 @@ def eventListIterator(items, user_timezone):
             event["event_end_date"] = local_end_datetime["date"]
             event["event_end_time"] = local_end_datetime["time"]
     return items
+
+class TestCredentials(Resource):
+    def get(self):
+        print("Inside Test Credentials")
+        response = {}
+
+        try:
+            email_access = os.getenv('SUPPORT_EMAIL')
+            response["email_access"] = email_access
+        except:
+            print("error in s3 access key")
+
+        try:
+            s3_access_key = os.getenv('MW_KEY')
+            response["s3_access_key"] = s3_access_key
+        except:
+            print("error in s3 access key")
+
+        try:
+            s3_secret_key = os.getenv('MW_SECRET')
+            response["s3_secret_key"] = s3_secret_key
+        except:
+            print("error in s3 secret key")
+
+        try:
+            s3_bucket = os.getenv('BUCKET_NAME')
+            response["s3_bucket"] = s3_bucket
+        except:
+            print("error in s3 bucket")
+
+        try:
+            s3_path = os.getenv('S3_PATH_KEY')
+            response["s3_path"] = s3_path
+        except:
+            print("error in s3 path")
+
+        return response, 200
+    
 def cosine_similarity(v1, v2):
     dot_product = np.dot(v1, v2)
     norm_v1 = np.linalg.norm(v1)
@@ -2567,6 +2605,7 @@ api.add_resource(SendEmailAttendee, "/api/v2/SendEmailAttendee")
 api.add_resource(SendTextAttendee, "/api/v2/SendTextAttendee")
 api.add_resource(SendEventDetails, "/api/v2/SendEventDetails")
 
+api.add_resource(TestCredentials, "/api/v2/TestCredentials")
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
