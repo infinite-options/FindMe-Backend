@@ -502,6 +502,8 @@ def cosine_similarity(v1, v2):
 def cosine_algorithm(users):
     
     print("INSIDE COSINE FUNCTION CALL")
+
+
     # load_dotenv()
     # try:
     #     s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
@@ -543,6 +545,8 @@ def cosine_algorithm(users):
     # kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
     # tmp_file.close()
     # os.unlink(tmp_file.name)
+
+
     bucket='find-me-cosine'
     key='glove.6B.50d.txt'
     data = s3.get_object(
@@ -1511,16 +1515,102 @@ class VerifyRegCode(Resource):
         finally:
             disconnect(conn)
 
-class AlgorithmGraph(Resource):
+
+class TestCredentials(Resource):
     def get(self):
-        print("INSIDE ALGORITHM ENDPOINT")
-        encoded_string=request.args.get('EventUsers')    
-        decoded_string = urllib.parse.unquote(encoded_string)
-        decoded_json_dict=json.loads(decoded_string)
-        result=cosine_algorithm(decoded_json_dict)
-        print("END OF ALGORITHM ENDPOINT")
-        # print("argument: ",decoded_json_dict)
-        return str(result),200
+        print("Inside Test Credentials")
+        response = {}
+
+        try:
+            email_access = os.getenv('SUPPORT_EMAIL')
+            response["email_access"] = email_access
+        except:
+            print("error in s3 access key")
+
+        try:
+            s3_access_key = os.getenv('MW_KEY')
+            response["s3_access_key"] = s3_access_key
+        except:
+            print("error in s3 access key")
+
+        try:
+            s3_secret_key = os.getenv('MW_SECRET')
+            response["s3_secret_key"] = s3_secret_key
+        except:
+            print("error in s3 secret key")
+
+        try:
+            s3_bucket = os.getenv('BUCKET_NAME')
+            response["s3_bucket"] = s3_bucket
+        except:
+            print("error in s3 bucket")
+
+        try:
+            s3_path = os.getenv('S3_PATH_KEY')
+            response["s3_path"] = s3_path
+        except:
+            print("error in s3 path")
+
+        return response, 200
+
+        # try:
+        #     s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
+        # except:
+        #     print("error in s3 access key")
+        # try:
+        #     s3_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        # except:
+        #     print("error in secret key")
+        # try:
+        #     s3_bucket_name = os.getenv('BUCKET_NAME')
+        # except:
+        #     print("error in bucket name")
+        # try:
+        #     s3_file_key = os.getenv('S3_PATH_KEY')
+        # except:
+        #     print("error in file key")
+        # # s3_access_key = ""
+        # # s3_secret_key = ""
+        # # s3_bucket_name = ""
+        # # s3_file_key = ""
+        # try:
+        #     s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
+        # except:
+        #     print("error in s3_client connection")
+
+        # print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:])
+        # print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
+        # try:
+        #     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
+        # except:
+        #     print("error in response of s3 client")
+        # try:
+        #     file_content = response['Body'].read().decode('utf-8')
+        # except:
+        #     print("error in decoding response")
+        # print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
+        # with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
+        #     tmp_file.write(file_content)
+        # kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+        # tmp_file.close()
+        # os.unlink(tmp_file.name)
+
+
+
+
+
+# class AlgorithmGraph(Resource):
+#     def get(self):
+#         print("INSIDE ALGORITHM ENDPOINT")
+#         encoded_string=request.args.get('EventUsers')    
+#         decoded_string = urllib.parse.unquote(encoded_string)
+#         decoded_json_dict=json.loads(decoded_string)
+#         result=cosine_algorithm(decoded_json_dict)
+#         print("END OF ALGORITHM ENDPOINT")
+#         # print("argument: ",decoded_json_dict)
+#         return str(result),200
+
+
 class NetworkingGraph(Resource):
     def get(self):
         response = {}
@@ -2541,7 +2631,7 @@ api.add_resource(EventsByAddress, '/api/v2/EventsByAddress')
 api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
 # arrive at event endpoints
-api.add_resource(AlgorithmGraph, "/api/v2/algorithmgraph")
+# api.add_resource(AlgorithmGraph, "/api/v2/algorithmgraph")
 api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
 api.add_resource(OverallGraph, "/api/v2/overallGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
@@ -2569,6 +2659,9 @@ api.add_resource(CheckUserProfile, "/api/v2/CheckUserProfile/<string:user_id>")
 api.add_resource(SendEmailAttendee, "/api/v2/SendEmailAttendee")
 api.add_resource(SendTextAttendee, "/api/v2/SendTextAttendee")
 api.add_resource(SendEventDetails, "/api/v2/SendEventDetails")
+
+
+api.add_resource(TestCredentials, "/api/v2/TestCredentials")
 
 
 # Run on below IP address and port
