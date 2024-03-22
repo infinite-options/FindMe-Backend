@@ -527,6 +527,7 @@ def cosine_algorithm(users):
     print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
     print("Connecting to s3")
     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
+    print("Printing the response of the s3",response)
     file_content = response['Body'].read().decode('utf-8')
     print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
     with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
