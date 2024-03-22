@@ -537,6 +537,7 @@ def cosine_similarity(v1, v2):
     norm_v2 = np.linalg.norm(v2)
     return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
+
 def cosine_algorithm(users):
     
     print("INSIDE COSINE FUNCTION CALL")
@@ -566,11 +567,18 @@ def cosine_algorithm(users):
     print("Connecting to s3")
     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
     print("Printing the response of the s3",response)
-    file_content = response['Body'].read().decode('utf-8')
+    try:
+        print("in try response",response)
+        file_content = response['Body'].read().decode('utf-8')
+    except Exception as e:
+        print("error in file_content",e)
+    print("Content of file",file_content[:100])
     print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
     with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
         tmp_file.write(file_content)
+    print("After temp file write")
     kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    print("this is the kv",kv)
     tmp_file.close()
     os.unlink(tmp_file.name)
     print("loaded data")
