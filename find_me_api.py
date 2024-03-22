@@ -502,7 +502,6 @@ def cosine_similarity(v1, v2):
 def cosine_algorithm(users):
     
     print("INSIDE COSINE FUNCTION CALL")
-    # load_dotenv()
     # try:
     #     s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
     # except:
@@ -519,43 +518,40 @@ def cosine_algorithm(users):
     #     s3_file_key = os.getenv('S3_PATH_KEY')
     # except:
     #     print("error in file key")
-    # s3_access_key = ""
-    # s3_secret_key = ""
-    # s3_bucket_name = ""
-    # s3_file_key = ""
-    # try:
-    #     s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
-    # except:
-    #     print("error in s3_client connection")
-    # print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:])
-    # print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
-    # try:
-    #     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
-    # except:
-    #     print("error in response of s3 client")
-    # try:
-    #     file_content = response['Body'].read().decode('utf-8')
-    # except:
-    #     print("error in decoding response")
-    # print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
-    # with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
-    #     tmp_file.write(file_content)
-    # kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
-    # tmp_file.close()
-    # os.unlink(tmp_file.name)
-    bucket='find-me-cosine'
-    key='glove.6B.50d.txt'
-    data = s3.get_object(
-        Bucket=bucket,
-        Key=key
-    )
-    file_content = data['Body'].read().decode('utf-8')
+    s3_access_key = os.getenv('MW_KEY')
+    s3_secret_key = os.getenv('MW_SECRET')
+    s3_bucket_name = os.getenv('BUCKET_NAME')
+    s3_file_key = os.getenv('S3_PATH_KEY')
+    s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
+    print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:])
+    print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
+    print("Connecting to s3")
+    response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
+    file_content = response['Body'].read().decode('utf-8')
+    print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
     with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
         tmp_file.write(file_content)
     kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
     tmp_file.close()
     os.unlink(tmp_file.name)
-    print("LOADED THE S3 CONTENT")
+    print("loaded data")
+
+
+    # bucket='find-me-cosine'
+    # key='glove.6B.50d.txt'
+    # data = s3.get_object(
+    #     Bucket=bucket,
+    #     Key=key
+    # )
+    # file_content = data['Body'].read().decode('utf-8')
+    # with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
+    #     tmp_file.write(file_content)
+    # kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    # tmp_file.close()
+    # os.unlink(tmp_file.name)
+    # print("LOADED THE S3 CONTENT")
+
+
     # glove_path = "https://find-me-cosine.s3.us-west-1.amazonaws.com/glove.6B.50d.txt"
     # kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
     # print("kv variable",kv)
