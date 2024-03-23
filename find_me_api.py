@@ -541,22 +541,6 @@ def cosine_similarity(v1, v2):
 def cosine_algorithm(users):
     
     print("INSIDE COSINE FUNCTION CALL")
-    # try:
-    #     s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
-    # except:
-    #     print("error in s3 access key")
-    # try:
-    #     s3_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    # except:
-    #     print("error in secret key")
-    # try:
-    #     s3_bucket_name = os.getenv('BUCKET_NAME')
-    # except:
-    #     print("error in bucket name")
-    # try:
-    #     s3_file_key = os.getenv('S3_PATH_KEY')
-    # except:
-    #     print("error in file key")
     s3_access_key = os.getenv('MW_KEY')
     s3_secret_key = os.getenv('MW_SECRET')
     s3_bucket_name = os.getenv('BUCKET_NAME')
@@ -567,49 +551,46 @@ def cosine_algorithm(users):
     print("Connecting to s3")
     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
     print("Printing the response of the s3",response)
-    file_content = ""
-    try:
-        print("in try response",response)
-        # file_content = response['Body'].read().decode('utf-8')
-        file_content=response['Body']
-        print("response body",file_content)
-        file_content=file_content.read()
-        print("response body read")
-        file_content=file_content.decode('utf-8')
-        print("response body decode")
+    # file_content = ""
+    # try:
+    #     print("in try response",response)
+    #     #     
+    #     file_content=response['Body']
+    #     print("response body",file_content)
+    #     file_content=file_content.read()
+    #     print("response body read")
+    #     file_content=file_content.decode('utf-8')
+    #     print("response body decode")
 
-    except Exception as e:
-        print("error in file_content",type(e).__name__,e)
-    print("Content of file",file_content[:100])
-    print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
-        tmp_file.write(file_content)
-    print("After temp file write")
-    kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
-    print("this is the kv",kv)
-    tmp_file.close()
-    os.unlink(tmp_file.name)
-    print("loaded data")
-
-
-    # bucket='find-me-cosine'
-    # key='glove.6B.50d.txt'
-    # data = s3.get_object(
-    #     Bucket=bucket,
-    #     Key=key
-    # )
-    # file_content = data['Body'].read().decode('utf-8')
+    # except Exception as e:
+    #     print("error in file_content",type(e).__name__,e)
+    # print("Content of file",file_content[:100])
+    # print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
     # with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
     #     tmp_file.write(file_content)
+    # print("After temp file write")
     # kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    # print("this is the kv",kv)
     # tmp_file.close()
     # os.unlink(tmp_file.name)
-    # print("LOADED THE S3 CONTENT")
+    # print("loaded data")
+    print("outside the tempfile")
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
+        print("inside the tempfile waiting for chunks")
+        for chunk in response['Body'].iter_chunks(chunk_size=8192):       
+            try:
+                tmp_file.write(chunk.decode('utf-8'))
+            except UnicodeDecodeError:
+                pass
+        print("inside the tempfile done with chunks")
+    print("starting the kv")
+    kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    print("finish kv",kv)
+    tmp_file.close()
+    os.unlink(tmp_file.name)
+    print("finish closing tmp and unklinking")
 
 
-    # glove_path = "https://find-me-cosine.s3.us-west-1.amazonaws.com/glove.6B.50d.txt"
-    # kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
-    # print("kv variable",kv)
 
     user_vectors = {}
     for user_name, user_data in users.items():
