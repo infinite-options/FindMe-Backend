@@ -22,6 +22,7 @@ import heapq
 import httplib2
 
 from botocore.response import StreamingBody
+from io import BytesIO
 from datetime import time, date, datetime, timedelta
 import calendar
 import collections
@@ -493,6 +494,44 @@ def eventListIterator(items, user_timezone):
             event["event_end_date"] = local_end_datetime["date"]
             event["event_end_time"] = local_end_datetime["time"]
     return items
+
+class TestCredentials(Resource):
+    def get(self):
+        print("Inside Test Credentials")
+        response = {}
+
+        try:
+            email_access = os.getenv('SUPPORT_EMAIL')
+            response["email_access"] = email_access
+        except:
+            print("error in s3 access key")
+
+        try:
+            s3_access_key = os.getenv('MW_KEY')
+            response["s3_access_key"] = s3_access_key
+        except:
+            print("error in s3 access key")
+
+        try:
+            s3_secret_key = os.getenv('MW_SECRET')
+            response["s3_secret_key"] = s3_secret_key
+        except:
+            print("error in s3 secret key")
+
+        try:
+            s3_bucket = os.getenv('BUCKET_NAME')
+            response["s3_bucket"] = s3_bucket
+        except:
+            print("error in s3 bucket")
+
+        try:
+            s3_path = os.getenv('S3_PATH_KEY')
+            response["s3_path"] = s3_path
+        except:
+            print("error in s3 path")
+
+        return response, 200
+    
 def cosine_similarity(v1, v2):
     dot_product = np.dot(v1, v2)
     norm_v1 = np.linalg.norm(v1)
@@ -500,28 +539,58 @@ def cosine_similarity(v1, v2):
     return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
 def cosine_algorithm(users):
+    
     print("INSIDE COSINE FUNCTION CALL")
-    # load_dotenv()
-    s3_access_key = os.getenv('AWS_ACCESS_KEY_ID')
-    s3_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+    s3_access_key = os.getenv('MW_KEY')
+    s3_secret_key = os.getenv('MW_SECRET')
     s3_bucket_name = os.getenv('BUCKET_NAME')
     s3_file_key = os.getenv('S3_PATH_KEY')
-
     s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
     print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:])
     print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
+    print("Connecting to s3")
     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
-    file_content = response['Body'].read().decode('utf-8')
-    print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
+    print("Printing the response of the s3",response)
+    # file_content = ""
+    # try:
+    #     print("in try response",response)
+    #     #     
+    #     file_content=response['Body']
+    #     print("response body",file_content)
+    #     file_content=file_content.read()
+    #     print("response body read")
+    #     file_content=file_content.decode('utf-8')
+    #     print("response body decode")
+
+    # except Exception as e:
+    #     print("error in file_content",type(e).__name__,e)
+    # print("Content of file",file_content[:100])
+    # print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
+    # with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
+    #     tmp_file.write(file_content)
+    # print("After temp file write")
+    # kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    # print("this is the kv",kv)
+    # tmp_file.close()
+    # os.unlink(tmp_file.name)
+    # print("loaded data")
+
+    print("outside the tempfile")
     with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
-        tmp_file.write(file_content)
+        print("inside the tempfile waiting for chunks")
+        for chunk in response['Body'].iter_chunks(chunk_size=8192):       
+            try:
+                tmp_file.write(chunk.decode('utf-8'))
+            except UnicodeDecodeError:
+                pass
+        print("inside the tempfile done with chunks")
+    print("starting the kv")
     kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
+    print("finish kv",kv)
     tmp_file.close()
     os.unlink(tmp_file.name)
-    print("LOADED THE S3 CONTENT")
-    # glove_path = "https://find-me-cosine.s3.us-west-1.amazonaws.com/glove.6B.50d.txt"
-    # kv = KeyedVectors.load_word2vec_format(glove_path, binary=False)
-    print("kv variable",kv)
+    print("finish closing tmp and unklinking")
+
     user_vectors = {}
     for user_name, user_data in users.items():
         answer_vectors = []
@@ -563,6 +632,84 @@ def cosine_algorithm(users):
     print("END OF COSINE ENDPOINT")
     return id_matches
 
+def get_word_vector(token, embeddings):
+    for line in embeddings.split("\n"):
+        if not line:
+            continue
+        parts = line.split(" ")
+        word = parts[0]
+        if word == token:
+            # Assuming the word vector starts from index 1
+            return np.array(parts[1:], dtype=np.float32)
+    # Return zeros if the token is not found
+    return np.zeros(50)
+
+def cosine_alg_trial(users):
+    s3_access_key = os.getenv('MW_KEY')
+    s3_secret_key = os.getenv('MW_SECRET')
+    s3_bucket_name = os.getenv('BUCKET_NAME')
+    s3_file_key = os.getenv('S3_PATH_KEY')
+    s3_client = boto3.client('s3', aws_access_key_id=s3_access_key, aws_secret_access_key=s3_secret_key)
+
+    # Process user responses iteratively
+    user_vectors = {}
+    print("beginning every user loop")
+    for user_name, user_data in users.items():
+        answer_vectors = []
+        for qa_pair in user_data['qas']:
+            answer = qa_pair['answer']
+            tokens = answer.lower().split()
+            word_vectors = []
+            # Load GloVe file in chunks
+            print("Connecting to S3")
+            response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
+            print("Printing the response of the S3", response)
+
+            print("Reading GloVe file in chunks")
+            for chunk in response['Body'].iter_chunks(chunk_size=8192):
+                try:
+                    chunk_text = chunk.decode('utf-8')
+                    word_vectors_chunk = [get_word_vector(token, chunk_text) for token in tokens]
+                    word_vectors.extend(word_vectors_chunk)
+                    if any(np.any(vec) for vec in word_vectors_chunk):
+                        break
+                except UnicodeDecodeError:
+                    pass
+            print("done reading glove file for this user")
+            answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(50)
+            answer_vectors.append(answer_vector)
+        user_vectors[user_name] = answer_vectors
+
+    # Compute similarity scores
+    print("Computing similarity scores here")
+    similarity_scores = {}
+    for user1, answers1 in user_vectors.items():
+        for user2, answers2 in user_vectors.items():
+            if user1 != user2:
+                similarities = [cosine_similarity(ans1, ans2) for ans1, ans2 in zip(answers1, answers2)]
+                avg_similarity = np.mean(similarities) if similarities else 0
+                similarity_scores[(user1, user2)] = avg_similarity
+
+    # Find top matches
+    print("Top Matches")
+    top_matches = {}
+    for user1 in user_vectors.keys():
+        top_matches[user1] = []
+        for user2 in user_vectors.keys():
+            if user1 != user2:
+                score = similarity_scores.get((user1, user2), 0)
+                if len(top_matches[user1]) < 3 or score > min([s['score'] for s in top_matches[user1]]):
+                    top_matches[user1].append({'from': user1, 'to': user2, 'score': score})
+                    top_matches[user1].sort(key=lambda x: x['score'], reverse=True)
+                    if len(top_matches[user1]) > 3:
+                        top_matches[user1].pop()
+
+    # Store user id as key
+    id_matches = {}
+    for name, matches in top_matches.items():
+        id_matches[users[name]['user_uid']] = matches
+    print("END OF COSINE ENDPOINT")
+    return id_matches
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
 # RUN STORED PROCEDURES
@@ -1478,7 +1625,8 @@ class AlgorithmGraph(Resource):
         encoded_string=request.args.get('EventUsers')    
         decoded_string = urllib.parse.unquote(encoded_string)
         decoded_json_dict=json.loads(decoded_string)
-        result=cosine_algorithm(decoded_json_dict)
+        # result=cosine_algorithm(decoded_json_dict)
+        result=cosine_alg_trial(decoded_json_dict)
         print("END OF ALGORITHM ENDPOINT")
         # print("argument: ",decoded_json_dict)
         return str(result),200
@@ -1843,6 +1991,7 @@ class EventAttendees(Resource):
 
 class GetEvents(Resource):
     def get(self):
+        print("IN GET EVENTS")
         conn = connect()
         response = {}
         response["message"] = "Successfully executed SQL query."
@@ -2530,6 +2679,7 @@ api.add_resource(SendEmailAttendee, "/api/v2/SendEmailAttendee")
 api.add_resource(SendTextAttendee, "/api/v2/SendTextAttendee")
 api.add_resource(SendEventDetails, "/api/v2/SendEventDetails")
 
+api.add_resource(TestCredentials, "/api/v2/TestCredentials")
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
