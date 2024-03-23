@@ -567,11 +567,19 @@ def cosine_algorithm(users):
     print("Connecting to s3")
     response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
     print("Printing the response of the s3",response)
+    file_content = ""
     try:
         print("in try response",response)
-        file_content = response['Body'].read().decode('utf-8')
+        # file_content = response['Body'].read().decode('utf-8')
+        file_content=response['Body']
+        print("response body",file_content)
+        file_content=file_content.read()
+        print("response body read")
+        file_content=file_content.decode('utf-8')
+        print("response body decode")
+
     except Exception as e:
-        print("error in file_content",e)
+        print("error in file_content",type(e).__name__,e)
     print("Content of file",file_content[:100])
     print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
     with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
