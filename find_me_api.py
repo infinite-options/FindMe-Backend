@@ -538,100 +538,6 @@ def cosine_similarity(v1, v2):
     norm_v2 = np.linalg.norm(v2)
     return dot_product / (norm_v1 * norm_v2) if norm_v1 != 0 and norm_v2 != 0 else 0
 
-def cosine_algorithm(users):
-    
-    print("INSIDE COSINE FUNCTION CALL")
-    s3_access_key = os.getenv('MW_KEY')
-    s3_secret_key = os.getenv('MW_SECRET')
-    s3_bucket_name = os.getenv('BUCKET_NAME')
-    s3_file_key = os.getenv('S3_PATH_KEY')
-    s3_client = boto3.client('s3',aws_access_key_id=s3_access_key,aws_secret_access_key=s3_secret_key)
-    print("ALL THE ENV:","Access key:",s3_access_key[:3],s3_access_key[-3:],"Secret key:",s3_secret_key[:3],s3_secret_key[-3:])
-    print("BUCKET AND PATH",s3_bucket_name,s3_file_key)
-    print("Connecting to s3")
-    response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
-    print("Printing the response of the s3",response)
-    # file_content = ""
-    # try:
-    #     print("in try response",response)
-    #     #     
-    #     file_content=response['Body']
-    #     print("response body",file_content)
-    #     file_content=file_content.read()
-    #     print("response body read")
-    #     file_content=file_content.decode('utf-8')
-    #     print("response body decode")
-
-    # except Exception as e:
-    #     print("error in file_content",type(e).__name__,e)
-    # print("Content of file",file_content[:100])
-    # print("AFTER CONNECTING TO S3 RETRIEVAL OF DATA")
-    # with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
-    #     tmp_file.write(file_content)
-    # print("After temp file write")
-    # kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
-    # print("this is the kv",kv)
-    # tmp_file.close()
-    # os.unlink(tmp_file.name)
-    # print("loaded data")
-
-    print("outside the tempfile")
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp_file:
-        print("inside the tempfile waiting for chunks")
-        for chunk in response['Body'].iter_chunks(chunk_size=8192):       
-            try:
-                tmp_file.write(chunk.decode('utf-8'))
-            except UnicodeDecodeError:
-                pass
-        print("inside the tempfile done with chunks")
-    print("starting the kv")
-    kv = KeyedVectors.load_word2vec_format(tmp_file.name, binary=False)
-    print("finish kv",kv)
-    tmp_file.close()
-    os.unlink(tmp_file.name)
-    print("finish closing tmp and unklinking")
-
-    user_vectors = {}
-    for user_name, user_data in users.items():
-        answer_vectors = []
-        for qa_pair in user_data['qas']:
-            answer = qa_pair['answer']
-            tokens = answer.lower().split()
-            word_vectors = [kv.get_vector(token) if token in kv.key_to_index else np.zeros(kv.vector_size) for token in tokens]
-            answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(kv.vector_size)
-            answer_vectors.append(answer_vector)
-        user_vectors[user_name] = answer_vectors
-
-    similarity_scores = {}
-    for user1, answers1 in user_vectors.items():
-        for user2, answers2 in user_vectors.items():
-            if user1 != user2 :
-                similarities = []
-                for ans1, ans2 in zip(answers1, answers2):
-                    similarity = cosine_similarity(ans1, ans2)
-                    similarities.append(similarity)
-                avg_similarity = np.mean(similarities) if similarities else 0
-                similarity_scores[(user1, user2)] = avg_similarity
-
-    top_matches = {}
-    for user1 in user_vectors.keys():
-        top_matches[user1] = []
-        for user2 in user_vectors.keys():
-            if user1 != user2:
-                score = similarity_scores.get((user1, user2), 0)
-                if len(top_matches[user1]) < 3 or score > min([s['score'] for s in top_matches[user1]]):
-                    top_matches[user1].append({'from': user1, 'to': user2, 'score': score})
-                    top_matches[user1].sort(key=lambda x: x['score'], reverse=True)
-                    if len(top_matches[user1]) > 3:
-                        top_matches[user1].pop()
-
-    #store user id as key
-    id_matches = {}
-    for name, matches in top_matches.items():
-        id_matches[users[name]['user_uid']] = matches
-    print("END OF COSINE ENDPOINT")
-    return id_matches
-
 def get_word_vector(token, embeddings):
     for line in embeddings.split("\n"):
         if not line:
@@ -663,7 +569,7 @@ def cosine_alg_trial(users):
             # Load GloVe file in chunks
             print("Connecting to S3")
             response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
-            print("Printing the response of the S3", response)
+            print("the response of the S3", response)
 
             print("Reading GloVe file in chunks")
             for chunk in response['Body'].iter_chunks(chunk_size=8192):
@@ -710,6 +616,63 @@ def cosine_alg_trial(users):
         id_matches[users[name]['user_uid']] = matches
     print("END OF COSINE ENDPOINT")
     return id_matches
+def ShowCosineResults(users):
+    s3_access_key = os.getenv('MW_KEY')
+    s3_secret_key = os.getenv('MW_SECRET')
+    s3_bucket_name = os.getenv('BUCKET_NAME')
+    s3_file_key = os.getenv('S3_PATH_KEY')
+    s3_client = boto3.client('s3', aws_access_key_id=s3_access_key, aws_secret_access_key=s3_secret_key)
+
+   # Process user responses iteratively
+    user_vectors = {}
+    print("Beginning every user loop")
+    for user_name, user_data in users.items():
+        answer_vectors = []
+        for qa_pair in user_data['qas']:
+            answer = qa_pair['answer']
+            tokens = answer.lower().split()
+            word_vectors = []
+            # Load GloVe file in chunks
+            print("Connecting to S3")
+            response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
+            print("The response of the S3", response)
+
+            print("Reading GloVe file in chunks")
+            for chunk in response['Body'].iter_chunks(chunk_size=8192):
+                try:
+                    chunk_text = chunk.decode('utf-8')
+                    word_vectors_chunk = [get_word_vector(token, chunk_text) for token in tokens]
+                    word_vectors.extend(word_vectors_chunk)
+                    if any(np.any(vec) for vec in word_vectors_chunk):
+                        break
+                except UnicodeDecodeError:
+                    pass
+            print("Done reading glove file for this user")
+            answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(50)
+            answer_vectors.append(answer_vector)
+        user_vectors[user_name] = (answer_vectors, user_data['qas'])
+
+    # Compute similarity scores
+    print("Computing similarity scores here")
+    similarity_scores = {}
+    for user1, (answers1, _) in user_vectors.items():
+        for user2, (answers2, _) in user_vectors.items():
+            if user1 != user2:
+                similarities = [cosine_similarity(ans1, ans2) for ans1, ans2 in zip(answers1, answers2)]
+                avg_similarity = np.mean(similarities) if similarities else 0
+                similarity_scores[(user1, user2)] = avg_similarity
+
+    # Create all matches array
+    all_matches_array = []
+    for user1, (_, answers1) in user_vectors.items():
+        for user2, (_, answers2) in user_vectors.items():
+            if user1 != user2:
+                score = similarity_scores.get((user1, user2), 0)
+                all_matches_array.append([user1, user2, score, answers1, answers2])
+
+    # return [["user1","user2","similarity score",[response of user 1],[response of user2]]]
+    return all_matches_array
+
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
 # RUN STORED PROCEDURES
@@ -1625,9 +1588,17 @@ class AlgorithmGraph(Resource):
         encoded_string=request.args.get('EventUsers')    
         decoded_string = urllib.parse.unquote(encoded_string)
         decoded_json_dict=json.loads(decoded_string)
-        # result=cosine_algorithm(decoded_json_dict)
         result=cosine_alg_trial(decoded_json_dict)
         print("END OF ALGORITHM ENDPOINT")
+        # print("argument: ",decoded_json_dict)
+        return str(result),200
+class ShowCosine(Resource):
+    def get(self):
+        encoded_string=request.args.get('EventUsers')    
+        decoded_string = urllib.parse.unquote(encoded_string)
+        decoded_json_dict=json.loads(decoded_string)
+        result=ShowCosineResults(decoded_json_dict)
+        print("END OF SHOW ENDPOINT")
         # print("argument: ",decoded_json_dict)
         return str(result),200
 class NetworkingGraph(Resource):
@@ -2651,6 +2622,7 @@ api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
 # arrive at event endpoints
 api.add_resource(AlgorithmGraph, "/api/v2/algorithmgraph")
+api.add_resource(ShowCosine, "/api/v2/showcosineresults")
 api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
 api.add_resource(OverallGraph, "/api/v2/overallGraph")
 api.add_resource(EventAttendees, "/api/v2/eventAttendees")
