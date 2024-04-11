@@ -1592,8 +1592,38 @@ class AlgorithmGraph(Resource):
         print("END OF ALGORITHM ENDPOINT")
         # print("argument: ",decoded_json_dict)
         return str(result),200
+    
+#  ORIGINAL
+# class ShowCosine(Resource):
+#     def get(self):
+#         print("In ShowCosine")
+#         encoded_string=request.args.get('EventUsers')    
+#         decoded_string = urllib.parse.unquote(encoded_string)
+#         decoded_json_dict=json.loads(decoded_string)
+#         result=ShowCosineResults(decoded_json_dict)
+#         print("END OF SHOW ENDPOINT")
+#         # print("argument: ",decoded_json_dict)
+#         return str(result),200
+
+#  Passing list of Attendees as Arguments
+# class ShowCosine(Resource):
+#     def get(self, attendees):
+#         print("In ShowCosine ")
+#         print(attendees)
+#         encoded_string=request.args.get('EventUsers')    
+#         decoded_string = urllib.parse.unquote(encoded_string)
+#         decoded_json_dict=json.loads(decoded_string)
+#         result=ShowCosineResults(decoded_json_dict)
+#         print("END OF SHOW ENDPOINT")
+#         # print("argument: ",decoded_json_dict)
+#         return str(result),200
+
+# Passing list of attendees as Form Data
 class ShowCosine(Resource):
     def get(self):
+        print("In ShowCosine ")
+        data = request.form
+        print(data)
         encoded_string=request.args.get('EventUsers')    
         decoded_string = urllib.parse.unquote(encoded_string)
         decoded_json_dict=json.loads(decoded_string)
@@ -1601,6 +1631,9 @@ class ShowCosine(Resource):
         print("END OF SHOW ENDPOINT")
         # print("argument: ",decoded_json_dict)
         return str(result),200
+    
+
+
 class NetworkingGraph(Resource):
     def get(self):
         response = {}
@@ -1923,6 +1956,7 @@ class OverallGraph(Resource):
 
 class EventAttendees(Resource):
     def get(self):
+        print("In EventAttendees")
         response = {}
         try:
             args = request.args
@@ -2622,6 +2656,7 @@ api.add_resource(VerifyRegCode, "/api/v2/verifyRegCode/<string:regCode>")
 
 # arrive at event endpoints
 api.add_resource(AlgorithmGraph, "/api/v2/algorithmgraph")
+# api.add_resource(ShowCosine, "/api/v2/showcosineresults/<string:attendees>")
 api.add_resource(ShowCosine, "/api/v2/showcosineresults")
 api.add_resource(NetworkingGraph, "/api/v2/networkingGraph")
 api.add_resource(OverallGraph, "/api/v2/overallGraph")
