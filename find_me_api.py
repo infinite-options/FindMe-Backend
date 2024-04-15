@@ -616,6 +616,9 @@ def cosine_alg_trial(users):
         id_matches[users[name]['user_uid']] = matches
     print("END OF COSINE ENDPOINT")
     return id_matches
+
+# new showCosineFunction 4/12/2024
+
 def ShowCosineResults(users):
     s3_access_key = os.getenv('MW_KEY')
     s3_secret_key = os.getenv('MW_SECRET')
@@ -623,15 +626,30 @@ def ShowCosineResults(users):
     s3_file_key = os.getenv('S3_PATH_KEY')
     s3_client = boto3.client('s3', aws_access_key_id=s3_access_key, aws_secret_access_key=s3_secret_key)
 
+    print("==================================> users", users)
+    event_id = users["event_id"]
+    user_ids = users["user_ids"]
    # Process user responses iteratively
     user_vectors = {}
-    print("Beginning every user loop")
-    for user_name, user_data in users.items():
+    # important
+    # event_id = key of users object
+    # for user_name, user_data in users.items():
+    userObject = get_user_data_from_db(event_id)
+    print("got the user object", userObject)
+    for user_data in userObject:
+        # user_data = userObject["user_data"]
+        # user_name = user_data["user_name"]
+        # user_id = userObject["eu_user_id"]
+        user_id = user_data.get("eu_user_id")
         answer_vectors = []
-        for qa_pair in user_data['qas']:
+        qas_list = json.loads(user_data['eu_qas'])
+        for qa_pair in qas_list:
+
             answer = qa_pair['answer']
+            # answer = qa_pair("answer")
             tokens = answer.lower().split()
             word_vectors = []
+            
             # Load GloVe file in chunks
             print("Connecting to S3")
             response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
@@ -648,9 +666,20 @@ def ShowCosineResults(users):
                 except UnicodeDecodeError:
                     pass
             print("Done reading glove file for this user")
-            answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(50)
+            max_len = max(len(vec) for vec in word_vectors)
+            word_vectors = [vec if len(vec) == max_len else np.zeros(max_len) for vec in word_vectors]
+                
+                # Check if word_vectors is empty or has different lengths
+            if not word_vectors or len(word_vectors[0]) != 50:
+                answer_vector = np.zeros(50)  # If no word vectors or different lengths, create a zero vector
+            else:
+                answer_vector = np.mean(word_vectors, axis=0)
             answer_vectors.append(answer_vector)
-        user_vectors[user_name] = (answer_vectors, user_data['qas'])
+            user_vectors[user_id] = (answer_vectors, qas_list)            # answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(50)
+            # answer_vectors.append(answer_vector)
+        # user_vectors[user_name] = (answer_vectors, user_data['qas'])
+        # user_vectors[user_id] = (answer_vectors, user_data['eu_qas'])
+
 
     # Compute similarity scores
     print("Computing similarity scores here")
@@ -672,6 +701,85 @@ def ShowCosineResults(users):
 
     # return [["user1","user2","similarity score",[response of user 1],[response of user2]]]
     return all_matches_array
+
+def get_user_data_from_db(event_id):
+    userObject = {}
+    print("event-id====================" ,event_id)
+    try:
+        conn = connect()
+        query = """ SELECT * FROM event_user 
+                    WHERE eu_event_id = \'""" + event_id + """\' """
+        items = execute(query, 'get', conn)
+
+        print(items)
+        userObject = items["result"]
+        return userObject
+    finally:
+        print("in finally")
+            
+        # except:
+        # finally:
+        # cursor = connection.cursor()
+        # cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        # user_row = cursor.fetchone()
+    
+# old showCosineResult function
+# def ShowCosineResults(users):
+#     s3_access_key = os.getenv('MW_KEY')
+#     s3_secret_key = os.getenv('MW_SECRET')
+#     s3_bucket_name = os.getenv('BUCKET_NAME')
+#     s3_file_key = os.getenv('S3_PATH_KEY')
+#     s3_client = boto3.client('s3', aws_access_key_id=s3_access_key, aws_secret_access_key=s3_secret_key)
+
+#    # Process user responses iteratively
+#     user_vectors = {}
+#     print("Beginning every user loop")
+#     for user_name, user_data in users.items():
+#         answer_vectors = []
+#         for qa_pair in user_data['qas']:
+#             answer = qa_pair['answer']
+#             tokens = answer.lower().split()
+#             word_vectors = []
+#             # Load GloVe file in chunks
+#             print("Connecting to S3")
+#             response = s3_client.get_object(Bucket=s3_bucket_name, Key=s3_file_key)
+#             print("The response of the S3", response)
+
+#             print("Reading GloVe file in chunks")
+#             for chunk in response['Body'].iter_chunks(chunk_size=8192):
+#                 try:
+#                     chunk_text = chunk.decode('utf-8')
+#                     word_vectors_chunk = [get_word_vector(token, chunk_text) for token in tokens]
+#                     word_vectors.extend(word_vectors_chunk)
+#                     if any(np.any(vec) for vec in word_vectors_chunk):
+#                         break
+#                 except UnicodeDecodeError:
+#                     pass
+#             print("Done reading glove file for this user")
+#             answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(50)
+#             answer_vectors.append(answer_vector)
+#         user_vectors[user_name] = (answer_vectors, user_data['qas'])
+
+#     # Compute similarity scores
+#     print("Computing similarity scores here")
+#     similarity_scores = {}
+#     for user1, (answers1, _) in user_vectors.items():
+#         for user2, (answers2, _) in user_vectors.items():
+#             if user1 != user2:
+#                 similarities = [cosine_similarity(ans1, ans2) for ans1, ans2 in zip(answers1, answers2)]
+#                 avg_similarity = np.mean(similarities) if similarities else 0
+#                 similarity_scores[(user1, user2)] = avg_similarity
+
+#     # Create all matches array
+#     all_matches_array = []
+#     for user1, (_, answers1) in user_vectors.items():
+#         for user2, (_, answers2) in user_vectors.items():
+#             if user1 != user2:
+#                 score = similarity_scores.get((user1, user2), 0)
+#                 all_matches_array.append([user1, user2, score, answers1, answers2])
+
+#     # return [["user1","user2","similarity score",[response of user 1],[response of user2]]]
+#     return all_matches_array
 
 # -- Stored Procedures start here -------------------------------------------------------------------------------
 
@@ -1605,6 +1713,19 @@ class AlgorithmGraph(Resource):
 #         # print("argument: ",decoded_json_dict)
 #         return str(result),200
 
+#  Post
+class ShowCosine(Resource):
+    def post(self):
+        print("In ShowCosine")
+        # encoded_string=request.args.get('EventUsers')    
+        # decoded_string = urllib.parse.unquote(encoded_string)
+        # decoded_json_dict=json.loads(decoded_string)
+        data = request.get_json()
+        result=ShowCosineResults(data)
+        print("END OF SHOW ENDPOINT", result)
+        # print("argument: ",decoded_json_dict)
+        return str(result),200
+
 #  Passing list of Attendees as Arguments
 # class ShowCosine(Resource):
 #     def get(self, attendees):
@@ -1619,18 +1740,18 @@ class AlgorithmGraph(Resource):
 #         return str(result),200
 
 # Passing list of attendees as Form Data
-class ShowCosine(Resource):
-    def get(self):
-        print("In ShowCosine ")
-        data = request.form
-        print(data)
-        encoded_string=request.args.get('EventUsers')    
-        decoded_string = urllib.parse.unquote(encoded_string)
-        decoded_json_dict=json.loads(decoded_string)
-        result=ShowCosineResults(decoded_json_dict)
-        print("END OF SHOW ENDPOINT")
-        # print("argument: ",decoded_json_dict)
-        return str(result),200
+# class ShowCosine(Resource):
+#     def get(self):
+#         print("In ShowCosine ")
+#         data = request.form
+#         print(data)
+#         encoded_string=request.args.get('EventUsers')    
+#         decoded_string = urllib.parse.unquote(encoded_string)
+#         decoded_json_dict=json.loads(decoded_string)
+#         result=ShowCosineResults(decoded_json_dict)
+#         print("END OF SHOW ENDPOINT")
+#         # print("argument: ",decoded_json_dict)
+#         return str(result),200
     
 
 
