@@ -555,14 +555,25 @@ def cosine_alg_trial(users):
     s3_secret_key = os.getenv('MW_SECRET')
     s3_bucket_name = os.getenv('BUCKET_NAME')
     s3_file_key = os.getenv('S3_PATH_KEY')
-    s3_client = boto3.client('s3', aws_access_key_id=s3_access_key, aws_secret_access_key=s3_secret_key)
+    print("before s3 connect inside cosine algo trial", users)
 
+    s3_client = boto3.client('s3', aws_access_key_id=s3_access_key, aws_secret_access_key=s3_secret_key)
+    print("after s3 connect")
+    #  new changes
+    event_id = users["event_id"]
+    userObject = get_user_data_from_db(event_id)
+    print("the user object =============>", userObject)
     # Process user responses iteratively
     user_vectors = {}
     print("beginning every user loop")
-    for user_name, user_data in users.items():
+    # for user_name, user_data in users.items():
+    for user_data in userObject:
         answer_vectors = []
-        for qa_pair in user_data['qas']:
+        user_id = user_data.get("eu_user_id")
+
+        # for qa_pair in user_data['qas']:
+        qas_list = json.loads(user_data['eu_qas'])
+        for qa_pair in qas_list:
             answer = qa_pair['answer']
             tokens = answer.lower().split()
             word_vectors = []
@@ -582,23 +593,44 @@ def cosine_alg_trial(users):
                 except UnicodeDecodeError:
                     pass
             print("done reading glove file for this user")
-            answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(50)
+        #     answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(50)
+        #     answer_vectors.append(answer_vector)
+        # user_vectors[user_name] = answer_vectors
+            max_len = max(len(vec) for vec in word_vectors)
+            word_vectors = [vec if len(vec) == max_len else np.zeros(max_len) for vec in word_vectors]
+                
+                # Check if word_vectors is empty or has different lengths
+            if not word_vectors or len(word_vectors[0]) != 50:
+                answer_vector = np.zeros(50)  # If no word vectors or different lengths, create a zero vector
+            else:
+                answer_vector = np.mean(word_vectors, axis=0)
             answer_vectors.append(answer_vector)
-        user_vectors[user_name] = answer_vectors
+            user_vectors[user_id] = (answer_vectors, qas_list)            # answer_vector = np.mean(word_vectors, axis=0) if word_vectors else np.zeros(50)
 
-    # Compute similarity scores
+    # # Compute similarity scores
+    # print("Computing similarity scores here")
+    # # print("priting user_vectors ======= >", user_vectors)
+    # similarity_scores = {}
+    # for user1, answers1 in user_vectors.items():
+    #     for user2, answers2 in user_vectors.items():
+    #         if user1 != user2:
+    #             similarities = [cosine_similarity(ans1, ans2) for ans1, ans2 in zip(answers1, answers2)]
+    #             avg_similarity = np.mean(similarities) if similarities else 0
+    #             similarity_scores[(user1, user2)] = avg_similarity
+# Compute similarity scores
     print("Computing similarity scores here")
+    # print("priting user_vectors ======= >", user_vectors)
     similarity_scores = {}
-    for user1, answers1 in user_vectors.items():
-        for user2, answers2 in user_vectors.items():
+    for user1, (answers1, _) in user_vectors.items():  # Unpack answer_vectors and ignore qas_list
+        for user2, (answers2, _) in user_vectors.items():  # Unpack answer_vectors and ignore qas_list
             if user1 != user2:
                 similarities = [cosine_similarity(ans1, ans2) for ans1, ans2 in zip(answers1, answers2)]
                 avg_similarity = np.mean(similarities) if similarities else 0
                 similarity_scores[(user1, user2)] = avg_similarity
 
     # Find top matches
-    print("Top Matches")
     top_matches = {}
+    # print("user_vectors==========>", user_vectors)
     for user1 in user_vectors.keys():
         top_matches[user1] = []
         for user2 in user_vectors.keys():
@@ -609,14 +641,27 @@ def cosine_alg_trial(users):
                     top_matches[user1].sort(key=lambda x: x['score'], reverse=True)
                     if len(top_matches[user1]) > 3:
                         top_matches[user1].pop()
-
+    
     # Store user id as key
     id_matches = {}
-    for name, matches in top_matches.items():
-        id_matches[users[name]['user_uid']] = matches
+    # print(top_matches)
+    # for name, matches in top_matches.items():
+    #     id_matches[users[name][0]['user_uid']] = matches
+    # print("END OF COSINE ENDPOINT")
+    # return id_matches
+    print("top_matches =========================>", top_matches)
+    # for name, matches in top_matches.items():
+    #     print("here in for loop =========> name , matches", name , matches)
+    #     if name in users:
+    #         id_matches[users[name][0]['user_uid']] = matches
+    for user_id in users['user_ids']:
+        if user_id in top_matches:
+            print("Processing matches for user:", user_id)
+            id_matches[user_id] = top_matches[user_id]
+        else:
+            print("No matches found for user:", user_id)
     print("END OF COSINE ENDPOINT")
     return id_matches
-
 # new showCosineFunction 4/12/2024
 
 def ShowCosineResults(users):
@@ -682,7 +727,7 @@ def ShowCosineResults(users):
 
 
     # Compute similarity scores
-    print("Computing similarity scores here")
+    print("Computing similarity scores here" , user_vectors)
     similarity_scores = {}
     for user1, (answers1, _) in user_vectors.items():
         for user2, (answers2, _) in user_vectors.items():
@@ -1691,12 +1736,14 @@ class VerifyRegCode(Resource):
             disconnect(conn)
 
 class AlgorithmGraph(Resource):
-    def get(self):
+    # def get(self):
+    def post(self):
         print("INSIDE ALGORITHM ENDPOINT")
-        encoded_string=request.args.get('EventUsers')    
-        decoded_string = urllib.parse.unquote(encoded_string)
-        decoded_json_dict=json.loads(decoded_string)
-        result=cosine_alg_trial(decoded_json_dict)
+        # encoded_string=request.args.get('EventUsers')    
+        # decoded_string = urllib.parse.unquote(encoded_string)
+        # decoded_json_dict=json.loads(decoded_string)
+        data = request.get_json()
+        result=cosine_alg_trial(data)
         print("END OF ALGORITHM ENDPOINT")
         # print("argument: ",decoded_json_dict)
         return str(result),200
@@ -2091,7 +2138,7 @@ class EventAttendees(Resource):
             query = (
                 """
                 SELECT user_uid, first_name, last_name, role, email, 
-                    phone_number, images
+                    phone_number, images , eu_qas
                 FROM find_me.users u INNER JOIN find_me.event_user eu 
                     ON u.user_uid = eu.eu_user_id
                     INNER JOIN find_me.profile_user pu 
