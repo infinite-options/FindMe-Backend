@@ -337,6 +337,7 @@ def allowed_file(filename):
 
 
 def uploadImage(file, key, content):
+    print("file, key, content", file, key, content)
     bucket = 'io-find-me'
     contentType = 'image/jpeg'
     if type(file) == StreamingBody:
@@ -401,7 +402,7 @@ def updateImagesUser(imageFiles, id):
         if i == 0:
             filename = 'img_cover'
         key = f'user/{id}/{filename}'
-        print(content[i])
+        print("content[i] ====> ", content[i])
         image = uploadImage(
             imageFiles[filename], key, content[i])
 
@@ -411,24 +412,31 @@ def updateImagesUser(imageFiles, id):
 
 def updateImagesEvent(imageFiles, id):
     content = []
-    print('in updateImagesEvent')
+    print('in updateImagesEvent', imageFiles, id)
     for filename in imageFiles:
-
-        if type(imageFiles[filename]) == str:
+        print("filename ======>", filename, type(imageFiles[filename]) , imageFiles[filename])
+        if type(imageFiles[filename]) == str and imageFiles[filename] != "":
             print('in str')
             bucket = 'io-find-me'
             key = imageFiles[filename].split('/io-find-me/')[1]
-            print(bucket, key)
-            data = s3.get_object(
-                Bucket=bucket,
-                Key=key
-            )
+            print("bucket, key", bucket, key)
+            try:
+                data = s3.get_object(
+                    Bucket=bucket,
+                    Key=key
+                )
+            except Exception as e:
+                print("s3 failed", e)
+            finally:
+                print("TRY except complete")
+            print("here after s3.get_object", data)
             imageFiles[filename] = data['Body']
+
             content.append(data['ContentType'])
-            print(content)
+            print("content", content )
         else:
             content.append('')
-
+    print("after s3", imageFiles)
     s3Resource = boto3.resource('s3')
     bucket = s3Resource.Bucket('io-find-me')
     # bucket.objects.filter(
@@ -440,25 +448,93 @@ def updateImagesEvent(imageFiles, id):
         if i == 0:
             filename = 'img_cover'
         key = f'event/{id}/{filename}'
-        print(content[i])
+        print("content[i]", content[i])
         image = uploadImage(
             imageFiles[filename], key, content[i])
 
         images.append(image)
     return images
 
+#  changed updateImageEvent, if the above other function works, following commented function can be deleted
+# def updateImagesEvent(imageFiles, id):
+#     content = []
+#     print('in updateImagesEvent', imageFiles, id)
+#     s3 = boto3.client('s3')  # Initialize S3 client
+#     try:
+#         for filename in imageFiles:
+#             print("here filename", filename)
+#             # if isinstance(imageFiles[filename], str):
+#             if type(imageFiles[filename]) == str:
+#                 print('in str')
+#                 bucket = 'io-find-me'
+#                 key = imageFiles[filename].split('/io-find-me/')[1]
+#                 print("bucket, key", bucket, key)
+#                 try:
+#                     # Retrieve object from S3
+#                     data = s3.get_object(
+#                         Bucket=bucket,
+#                         Key=key
+#                     )
+#                     print("data from s3", data)
+#                     imageFiles[filename] = data['Body']
+#                     content.append(data['ContentType'])
+#                     print("content", content)
+#                 except Exception as e:
+#                     print("s3.get_object failed:", e)
+#                     content.append('')
+#                 finally:
+#                     print("TRY except complete")
+#             else:
+#                 print("here in else")
+#                 content.append('')
+#     except Exception as e:
+#         print("Exception occurred in processing image files:", e)
+#     print("after s3", imageFiles)
+    
+#     s3Resource = boto3.resource('s3')
+#     bucket = s3Resource.Bucket('io-find-me')
+#     images = []
+#     print("imageFiles", imageFiles, content)
+#     try:
+#         for i, filename in enumerate(imageFiles.keys()):
+#             print(i, filename)
+#             if i == 0:
+#                 filename = 'img_cover'
+#             key = f'event/{id}/{filename}'
+#             print("content[i] ==========", content[i])
+#             image = uploadImage(
+#                 imageFiles[filename], key, content[i])
+#             images.append(image)
+#         # for i in range(len(imageFiles.keys())):
+#         #     print("in for", image)
+#         #     filename = f'img_{i-1}'
+#         #     if i == 0:
+#         #         filename = 'img_cover'
+#         #     key = f'event/{id}/{filename}'
+#         #     print("content[i]", content[i])
+#         #     image = uploadImage(
+#         #         imageFiles[filename], key, content[i])
+
+#         #     images.append(image)
+#         # return images
+#     except Exception as e:
+#         print("Exception occurred in uploading images:", e)
+#     print("images", images)
+#     return images
 
 def convertLocalToUTC(dateTime, user_timezone):
-    # print(user_timezone)
+    print("user_timezone",  pytz.timezone(user_timezone))
     local = pytz.timezone(user_timezone)
+    print("local" , local)
     naive = datetime.strptime(dateTime, "%m/%d/%Y %I:%M %p")
     local_dt = local.localize(naive, is_dst=None)
+    print("local_dty" , local_dt)
     utc_dt = local_dt.astimezone(pytz.utc)
     # print(utc_dt)
     utc_dateTime = {}
     utc_dateTime["date"] = utc_dt.strftime("%m/%d/%Y")
     utc_dateTime["time"] = utc_dt.strftime("%I:%M %p")
-    print(utc_dateTime)
+    print("utc_dateTime", utc_dateTime)
     return utc_dateTime
 
 
@@ -889,6 +965,7 @@ class SendEmailAttendee(Resource):
 
                     try:
                         # print('in try', recipient[e])
+                        conn = connect()
 
                         msg = EmailMessage()
                         msg['Subject'] = str(eventTitle) + ': ' + str(subject)
@@ -937,7 +1014,73 @@ class SendEmailAttendee(Resource):
         finally:
             disconnect(conn)
 
+class BroadCastEmail(Resource):
+    def post(self):
+        print("In Send EMail get")
+        try:
+            conn = connect()
+            response = {}
+            response['message'] = []
+            data = request.get_json(force=True)
+            print(data)
+            recipient = data['emailId']
 
+            eventRegistrationCode = data["registrationCode"]
+            eventTitle = "You're invited to my bizbuz Event!"
+            subject = ""
+            message = " You are invited to attend our Bizbuz event. Please follow the link to register using the registration Code."
+            with smtplib.SMTP_SSL('smtp.mydomain.com', 465) as smtp:
+                smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+                for e in range(len(recipient)):
+                    print("printing eeee", recipient[e])
+                    try:
+
+                        msg = EmailMessage()
+                        print("msg", msg)
+                        msg['Subject'] = str(eventTitle) + ': ' + str(subject)
+                        msg['From'] = app.config["MAIL_USERNAME"]
+                        msg['To'] = [recipient[e]]
+                        print("msg after emailMsg function ", msg)
+
+                        html = """\
+                        <!DOCTYPE html>
+                        <html>
+                            <body style="background-color:#eee;padding:10px 20px;align:center">
+                                <div style="padding:20px 0px">
+                                    <div>
+                                        <div style="text-align:center;display:block;margin-left:auto;margin-right:auto;width:30%;">
+                                        <h3>Message from the Organizer: """ + str(message) + """ </h3>
+                                        </div>
+                                        <div style="text-align:center;display:block;margin-left:auto;margin-right:auto;width:30%;">
+                                            <h1>""" + str(eventTitle) + """</h1>
+
+                                            <p>Event Registration Link:  <a href="bizbuz.design/""" + str(eventRegistrationCode) + """ "> Register </a></p>
+                                            
+                                
+                                        </div>
+                                    </div>
+                                </div>
+                            </body>
+                        </html>
+                        """
+                        msg.set_content(html, subtype='html')
+                        print(msg)
+                        smtp.send_message(msg)
+                        response['message'].append(
+                            'Email to ' + recipient[e] + ' sent successfully')
+                    except:
+                        # print('in except', recipient[e])
+                        response['message'].append(
+                            'Email to ' + recipient[e] + ' failed')
+                        continue
+
+            return response
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+        
 class SendEventDetails(Resource):
 
     def post(self):
@@ -1213,7 +1356,7 @@ class AddEvent(Resource):
 
 class UpdateEvent(Resource):
     def put(self):
-        print("In UpdateEvent")
+        print("In UpdateEvent", request.form)
         response = {}
         items = {}
 
@@ -1242,8 +1385,11 @@ class UpdateEvent(Resource):
 
             eventStartDateTime = eventStartDate + " " + eventStartTime
             # print(" eventStartDateTime ",eventStartDateTime)
+            print("herere ? 1382", eventStartDateTime, user_timezone)
+
             eventStartDateTimeUTC = convertLocalToUTC(
                 eventStartDateTime, user_timezone)
+            
             eventStartDate = eventStartDateTimeUTC["date"]
             eventStartTime = eventStartDateTimeUTC["time"]
             # print("eventStartDate ",eventStartDate, " eventStartTime ",eventStartTime)
@@ -1254,50 +1400,106 @@ class UpdateEvent(Resource):
                 eventEndDateTime, user_timezone)
             eventEndDate = eventEndDateTimeUTC["date"]
             eventEndTime = eventEndDateTimeUTC["time"]
-            # print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
+            print("eventEndDate ",eventEndDate, " eventEndTime ",eventEndTime)
+            # print("at end")
+            print("images, typeof event[img_cover]", type(event) )
+            #  checking if image has a file
+
+            file = request.files.get('img_cover')
+            noUpdate = False
+            if 'img_cover' in request.files:
+                img_cover_file = request.files['img_cover']
+                if img_cover_file is not None:
+                    # File is uploaded, handle accordingly
+                    print("Image file uploaded img_cover_file", img_cover_file)
+                else:
+                    # No file uploaded, handle accordingly
+                    print("No image field not sent")
+            # else:
+            elif "img_cover" in request.form:
+                # img_cover field is either null or not sent
+
+                print("default case")
+                print("piritning event[img_cover]", event["img_cover"], type(event["img_cover"]), type(event))
+                if event.get("img_cover") is None:
+                    print("no field img_cover is received, => no need to update the image")
+                elif event["img_cover"] == "null":
+                    # print("img_cover received as null => default image")
+                    noUpdate = True
+                # print("img_cover field not sent")
+
 
             images = []
             i = -1
             imageFiles = {}
-            while True:
-                # print('if true')
-                filename = f'img_{i}'
-                if i == -1:
-                    filename = 'img_cover'
-                file = request.files.get(filename)
-                s3Link = event.get(filename)
-                print(file)
-                print(s3Link)
-                if file:
-                    imageFiles[filename] = file
-                elif s3Link:
-                    imageFiles[filename] = s3Link
-                else:
-                    break
-                i = 1+1
-            images = updateImagesEvent(imageFiles, event_uid)
-            print('after while', images)
 
-            query = (
-                """UPDATE  events SET
-                    event_title = \'""" + str(eventTitle).replace("'", "''").replace("\\n", " ") + """\',
-                    event_description = \'""" + str(eventDescription).replace("'", "''").replace("\\n", " ") + """\',
-                    event_organizer_uid = \'""" + event_organizer_uid + """\',
-                    event_type = \'""" + eventType + """\',
-                    event_location = \'""" + eventLocation + """\',
-                    event_location_name = \'""" + str(eventLocationName).replace("'", "''") + """\',
-                    event_zip = \'""" + eventZip + """\',
-                    event_start_date = \'""" + eventStartDate + """\',
-                    event_end_date = \'""" + eventEndDate + """\',
-                    event_start_time = \'""" + eventStartTime + """\',      
-                    event_end_time = \'""" + eventEndTime + """\',      
-                    event_visibility = \'""" + eventVisibility + """\',                       
-                    event_capacity = \'""" + eventCapacity + """\',         
-                    event_photo  = \'""" + json.dumps(images) + """\',      
-                    pre_event_questionnaire  = \'""" + str(preEventQuestionnaire).replace("'", "''").replace("\\n", " ") + """\',
-                    event_registration_code = \'""" + eventRegCode + """\'
-                    WHERE  event_uid = \'""" + event_uid + """\';"""
-            )
+            if not noUpdate:
+                while True:
+                    # print('if true')
+                    filename = f'img_{i}'
+                    if i == -1:
+                        filename = 'img_cover'
+                    file = request.files.get(filename)
+                    print("filename", filename, file)
+                    s3Link = event.get(filename)
+                    print(file, type(file))
+                    print(s3Link, type(s3Link))
+                    if file is not None and file != "null":
+                    # if file:
+                        imageFiles[filename] = file
+                    elif s3Link is not None and s3Link != "null":
+                    # elif s3Link:    
+                        print("in s3Link ", s3Link)
+                        imageFiles[filename] = s3Link                
+                    else:
+                        break
+                    i = 1+1
+                # print("image variable before update" ,)
+                images = updateImagesEvent(imageFiles, event_uid)
+                print('after while', images)
+            # update image either to empty array or the provided image
+            if not noUpdate:
+                query = (
+                    """UPDATE  events SET
+                        event_title = \'""" + str(eventTitle).replace("'", "''").replace("\\n", " ") + """\',
+                        event_description = \'""" + str(eventDescription).replace("'", "''").replace("\\n", " ") + """\',
+                        event_organizer_uid = \'""" + event_organizer_uid + """\',
+                        event_type = \'""" + eventType + """\',
+                        event_location = \'""" + eventLocation + """\',
+                        event_location_name = \'""" + str(eventLocationName).replace("'", "''") + """\',
+                        event_zip = \'""" + eventZip + """\',
+                        event_start_date = \'""" + eventStartDate + """\',
+                        event_end_date = \'""" + eventEndDate + """\',
+                        event_start_time = \'""" + eventStartTime + """\',      
+                        event_end_time = \'""" + eventEndTime + """\',      
+                        event_visibility = \'""" + eventVisibility + """\',                       
+                        event_capacity = \'""" + eventCapacity + """\',         
+                        event_photo  = \'""" + json.dumps(images) + """\',      
+                        pre_event_questionnaire  = \'""" + str(preEventQuestionnaire).replace("'", "''").replace("\\n", " ") + """\',
+                        event_registration_code = \'""" + eventRegCode + """\'
+                        WHERE  event_uid = \'""" + event_uid + """\';"""
+                )
+            else:
+                #  update without the image field.
+                query = (
+                    """UPDATE  events SET
+                        event_title = \'""" + str(eventTitle).replace("'", "''").replace("\\n", " ") + """\',
+                        event_description = \'""" + str(eventDescription).replace("'", "''").replace("\\n", " ") + """\',
+                        event_organizer_uid = \'""" + event_organizer_uid + """\',
+                        event_type = \'""" + eventType + """\',
+                        event_location = \'""" + eventLocation + """\',
+                        event_location_name = \'""" + str(eventLocationName).replace("'", "''") + """\',
+                        event_zip = \'""" + eventZip + """\',
+                        event_start_date = \'""" + eventStartDate + """\',
+                        event_end_date = \'""" + eventEndDate + """\',
+                        event_start_time = \'""" + eventStartTime + """\',      
+                        event_end_time = \'""" + eventEndTime + """\',      
+                        event_visibility = \'""" + eventVisibility + """\',                       
+                        event_capacity = \'""" + eventCapacity + """\',         
+                        pre_event_questionnaire  = \'""" + str(preEventQuestionnaire).replace("'", "''").replace("\\n", " ") + """\',
+                        event_registration_code = \'""" + eventRegCode + """\'
+                        WHERE  event_uid = \'""" + event_uid + """\';"""
+                )
 
             print(query)
             items = execute(query, "post", conn)
@@ -2855,7 +3057,7 @@ api.add_resource(SendTextAttendee, "/api/v2/SendTextAttendee")
 api.add_resource(SendEventDetails, "/api/v2/SendEventDetails")
 
 api.add_resource(TestCredentials, "/api/v2/TestCredentials")
-
+api.add_resource(BroadCastEmail , "/api/v2/broadCastEmail")
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
 if __name__ == "__main__":
