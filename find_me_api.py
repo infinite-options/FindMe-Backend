@@ -1334,34 +1334,47 @@ class UpdateEvent(Resource):
             #  checking if image has a file
 
             file = request.files.get('img_cover')
-            noUpdate = False
-            if 'img_cover' in request.files:
-                img_cover_file = request.files['img_cover']
-                if img_cover_file is not None:
-                    # File is uploaded, handle accordingly
-                    print("Image file uploaded img_cover_file", img_cover_file)
-                else:
-                    # No file uploaded, handle accordingly
-                    print("No image field not sent")
-            # else:
-            elif "img_cover" in request.form:
-                # img_cover field is either null or not sent
 
-                print("default case")
-                print("piritning event[img_cover]", event["img_cover"], type(event["img_cover"]), type(event))
-                if event.get("img_cover") is None:
-                    print("no field img_cover is received, => no need to update the image")
-                elif event["img_cover"] == "null":
-                    # print("img_cover received as null => default image")
-                    noUpdate = True
-                # print("img_cover field not sent")
+            updateImg = False
+            if 'img_cover' in request.files:
+                
+                updateImg = True
+                print("here received an image")
+            
+            if "img_cover" in request.form:
+                print("here received a null")
+                updateImg = True
+
+            if not updateImg:
+                print("nothing was received")
+            # noUpdate = False
+            # if 'img_cover' in request.files:
+            #     img_cover_file = request.files['img_cover']
+            #     if img_cover_file is not None:
+            #         # File is uploaded, handle accordingly
+            #         print("Image file uploaded img_cover_file", img_cover_file)
+            #     else:
+            #         # No file uploaded, handle accordingly
+            #         print("No image field not sent")
+            # # else:
+            # elif "img_cover" in request.form:
+            #     # img_cover field is either null or not sent
+
+            #     print("default case")
+            #     print("piritning event[img_cover]", event["img_cover"], type(event["img_cover"]), type(event))
+            #     if event.get("img_cover") is None:
+            #         print("no field img_cover is received, => no need to update the image")
+            #     elif event["img_cover"] == "null":
+            #         print("img_cover received as null => default image")
+            #         noUpdate = True
+            #     # print("img_cover field not sent")
 
 
             images = []
             i = -1
             imageFiles = {}
 
-            if not noUpdate:
+            if updateImg:
                 while True:
                     # print('if true')
                     filename = f'img_{i}'
@@ -1386,7 +1399,7 @@ class UpdateEvent(Resource):
                 images = updateImagesEvent(imageFiles, event_uid)
                 print('after while', images)
             # update image either to empty array or the provided image
-            if not noUpdate:
+            if updateImg:
                 query = (
                     """UPDATE  events SET
                         event_title = \'""" + str(eventTitle).replace("'", "''").replace("\\n", " ") + """\',
